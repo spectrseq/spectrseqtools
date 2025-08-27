@@ -28,7 +28,7 @@ TOLERANCE = 1e-3
 # Note that the error is on the higher side than would be for a good
 # calibrated machine (6ppm), but in the absence of an experimental measurement
 # of this error, this conservative value works well
-MATCHING_THRESHOLD = 12e-6
+MATCHING_THRESHOLD = 15e-6
 
 
 # Build dict with elemental masses
