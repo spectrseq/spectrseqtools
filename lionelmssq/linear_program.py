@@ -228,12 +228,12 @@ class LinearProgramInstance:
         return problem
 
     def check_feasibility(self, solver_params, threshold):
-        solver = getSolver(**solver_params, timeLimit=30)
+        solver = getSolver(**solver_params, timeLimit=5)
         _ = self.problem.solve(solver)
         return self.problem.objective.value() <= threshold
 
     def evaluate(self, solver_params):
-        solver = getSolver(**solver_params, timeLimit=60)
+        solver = getSolver(**solver_params, timeLimit=30)
         # gurobi.msg = False
         # TODO the returned value resembles the accuracy of the prediction
         _ = self.problem.solve(solver)
