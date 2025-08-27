@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Self
+from typing import List, Self, Set
 import polars as pl
 from loguru import logger
 
@@ -81,7 +81,16 @@ class Predictor:
         #  Hence, maybe do the following: Solve first with the reduced
         #  alphabet, and if the optimization does not yield a sufficiently
         #  good result, then try again with an extended alphabet.
-        masses = self._reduce_alphabet(explanations=explanations)
+
+        # Reduce nucleotide alphabet based on fragments
+        observed_nucleotides = {
+            nuc
+            for expls in explanations.values()
+            if expls is not None
+            for expl in expls
+            for nuc in expl
+        }
+        _ = self._reduce_alphabet(observed_nucleotides)
 
         skeleton_builder = SkeletonBuilder(
             explanations=explanations,
@@ -93,6 +102,10 @@ class Predictor:
         skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(
             modification_rate, fragments
         )
+
+        # Reduce nucleotide alphabet based on skeleton
+        nucleotides = {nuc for skeleton_pos in skeleton_seq for nuc in skeleton_pos}
+        masses = self._reduce_alphabet(nucleotides)
 
         # Remove all "internal" fragment duplicates that are truly terminal fragments
         frag_internal = frag_internal.filter(
@@ -153,16 +166,9 @@ class Predictor:
 
         return Prediction(*lp_instance.evaluate(solver_params))
 
-    def _reduce_alphabet(self, explanations) -> pl.DataFrame:
-        observed_nucleosides = {
-            nuc
-            for expls in explanations.values()
-            if expls is not None
-            for expl in expls
-            for nuc in expl
-        }
+    def _reduce_alphabet(self, nucleotide_list: Set[str]) -> pl.DataFrame:
         reduced = self.explanation_masses.filter(
-            pl.col("nucleoside").is_in(observed_nucleosides)
+            pl.col("nucleoside").is_in(nucleotide_list)
         )
         reduced = reduced.with_columns(
             (pl.col("monoisotopic_mass") + PHOSPHATE_LINK_MASS).alias(
@@ -172,7 +178,7 @@ class Predictor:
         print("Nucleosides considered for fitting after alphabet reduction:", reduced)
 
         self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
-            observed_nucleosides
+            nucleotide_list
         )
 
         return reduced
