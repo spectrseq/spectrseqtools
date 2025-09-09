@@ -58,6 +58,7 @@ def test_testcase_with_recursion(testcase, threshold):
         reduced_table=True,
         reduced_set=False,
         compression_rate=32,
+        max_seq_len=len(testcase[1]),
         tolerance=threshold,
         precision=TOLERANCE,
     )
@@ -65,7 +66,6 @@ def test_testcase_with_recursion(testcase, threshold):
     predicted_mass_explanations = explain_mass_with_recursion(
         testcase[0],
         dp_table=dp_table,
-        seq_len=len(testcase[1]),
         max_modifications=round(MOD_RATE * len(testcase[1])),
     ).explanations
 
@@ -90,6 +90,7 @@ def test_testcase_with_table(testcase, compression, threshold, memo):
         reduced_table=True,
         reduced_set=False,
         compression_rate=compression,
+        max_seq_len=len(testcase[1]),
         tolerance=threshold,
         precision=TOLERANCE,
     )
@@ -97,7 +98,6 @@ def test_testcase_with_table(testcase, compression, threshold, memo):
     predicted_mass_explanations = explain_mass_with_table(
         testcase[0],
         dp_table=dp_table,
-        seq_len=len(testcase[1]),
         max_modifications=round(MOD_RATE * len(testcase[1])),
         with_memo=memo,
     ).explanations

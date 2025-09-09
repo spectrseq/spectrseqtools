@@ -15,7 +15,6 @@ from lionelmssq.mass_table import DynamicProgrammingTable
 @dataclass
 class SkeletonBuilder:
     explanations: list[Explanation]
-    seq_len: int
     dp_table: DynamicProgrammingTable
 
     def build_skeleton(
@@ -25,7 +24,7 @@ class SkeletonBuilder:
         start_skeleton, start_fragments = self._predict_skeleton(
             modification_rate=modification_rate,
             fragments=fragments.filter(pl.col("breakage").str.contains("START")),
-            skeleton_seq=[set() for _ in range(self.seq_len)],
+            skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
         )
         print("Skeleton sequence start = ", start_skeleton)
 
@@ -33,7 +32,7 @@ class SkeletonBuilder:
         end_skeleton, end_fragments = self._predict_skeleton(
             modification_rate=modification_rate,
             fragments=fragments.filter(pl.col("breakage").str.contains("END")),
-            skeleton_seq=[set() for _ in range(self.seq_len)],
+            skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
         )
         # Reverse skeleton from END fragments
         end_skeleton = end_skeleton[::-1]
@@ -73,7 +72,7 @@ class SkeletonBuilder:
     ) -> Tuple[List[Set[str]], pl.DataFrame]:
         # Initialize skeleton sequence (if not already given)
         if skeleton_seq is None:
-            skeleton_seq = [set() for _ in range(self.seq_len)]
+            skeleton_seq = [set() for _ in range(self.dp_table.max_seq_len)]
 
         # METHOD: Reject fragments which are not explained well by mass
         # differences. While iterating through the fragments, bin them
@@ -154,8 +153,8 @@ class SkeletonBuilder:
     def _align_skeletons(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
     ) -> List[Set[str]]:
-        skeleton_seq = [set() for _ in range(self.seq_len)]
-        for i in range(self.seq_len):
+        skeleton_seq = [set() for _ in range(self.dp_table.max_seq_len)]
+        for i in range(self.dp_table.max_seq_len):
             # Preferentially consider nucleotides where start and end agree
             skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
             # If the intersection is empty, use the union instead
@@ -240,7 +239,6 @@ class SkeletonBuilder:
                 diff,
                 threshold,
                 modification_rate,
-                self.seq_len,
                 self.dp_table,
             )
 
@@ -259,7 +257,7 @@ class SkeletonBuilder:
                     [
                         expl
                         for expl in explanations
-                        if 0 <= p + len(expl) - 1 < self.seq_len
+                        if 0 <= p + len(expl) - 1 < self.dp_table.max_seq_len
                     ],
                     len,
                 )

@@ -30,20 +30,23 @@ class DynamicProgrammingTable:
     compression_per_cell: int
     precision: float
     tolerance: float
+    max_seq_len: int
     masses: List[NucleotideMass]
 
     def __init__(
         self,
-        nucleotide_df,
-        compression_rate,
-        tolerance,
-        precision,
-        reduced_table=False,
-        reduced_set=False,
+        nucleotide_df: pl.DataFrame,
+        compression_rate: int,
+        tolerance: float,
+        precision: float,
+        max_seq_len: int,
+        reduced_table: bool = False,
+        reduced_set: bool = False,
     ):
         self.compression_per_cell = compression_rate
         self.precision = precision
         self.tolerance = tolerance
+        self.max_seq_len = max_seq_len
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
             table_path=set_table_path(

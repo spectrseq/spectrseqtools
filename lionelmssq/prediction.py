@@ -38,7 +38,6 @@ class Predictor:
     def predict(
         self,
         fragments: pl.DataFrame,
-        seq_len: int,
         solver_params: dict,
         modification_rate: float = 0.5,
     ) -> Prediction:
@@ -73,7 +72,6 @@ class Predictor:
         explanations = self.collect_diff_explanations_for_su(
             modification_rate=modification_rate,
             fragments=fragments,
-            seq_len=seq_len,
         )
 
         # TODO: Also consider that the observations are not complete and that
@@ -94,7 +92,6 @@ class Predictor:
 
         skeleton_builder = SkeletonBuilder(
             explanations=explanations,
-            seq_len=seq_len,
             dp_table=self.dp_table,
         )
 
@@ -223,19 +220,16 @@ class Predictor:
         self,
         modification_rate,
         fragments,
-        seq_len,
     ) -> dict:
         # Collect explanation for all reasonable mass differences for each side
         explanations = {
             **self.collect_explanations_per_side(
                 fragments=fragments.filter(pl.col("breakage").str.contains("START")),
                 modification_rate=modification_rate,
-                seq_len=seq_len,
             ),
             **self.collect_explanations_per_side(
                 fragments=fragments.filter(pl.col("breakage").str.contains("END")),
                 modification_rate=modification_rate,
-                seq_len=seq_len,
             ),
         }
 
@@ -249,7 +243,6 @@ class Predictor:
                 diff=singleton[idx_su_mass],
                 threshold=self.dp_table.tolerance * singleton[idx_observed_mass],
                 modification_rate=modification_rate,
-                seq_len=seq_len,
                 dp_table=self.dp_table,
             )
 
@@ -259,7 +252,6 @@ class Predictor:
         self,
         fragments,
         modification_rate,
-        seq_len,
     ):
         max_weight = (
             max(self.explanation_masses.get_column("monoisotopic_mass").to_list())
@@ -295,7 +287,6 @@ class Predictor:
                 diff=diff,
                 threshold=diff_error,  # * diff,
                 modification_rate=modification_rate,
-                seq_len=seq_len,
                 dp_table=self.dp_table,
             )
             if expl is not None and len(expl) >= 1:

@@ -43,14 +43,12 @@ def calculate_explanations(
     diff: float,
     threshold: float,
     modification_rate: float,
-    seq_len: int,
     dp_table: DynamicProgrammingTable,
 ) -> List[Explanation]:
     explanation_list = explain_mass_with_table(
         diff,
         dp_table=dp_table,
-        seq_len=seq_len,
-        max_modifications=round(modification_rate * seq_len),
+        max_modifications=round(modification_rate * dp_table.max_seq_len),
         threshold=threshold,
     ).explanations
 

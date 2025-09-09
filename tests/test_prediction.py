@@ -86,6 +86,7 @@ def test_testcase(testcase):
             reduced_table=True,
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
+            max_seq_len=len(true_seq),
             tolerance=matching_threshold,
             precision=TOLERANCE,
         )
@@ -111,6 +112,7 @@ def test_testcase(testcase):
             reduced_table=False,
             reduced_set=True,
             compression_rate=COMPRESSION_RATE,
+            max_seq_len=len(true_seq),
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
@@ -143,7 +145,6 @@ def test_testcase(testcase):
         explanation_masses=explanation_masses,
     ).predict(
         fragments=fragments,
-        seq_len=len(true_seq),
         solver_params=solver_params,
     )
 
