@@ -50,7 +50,20 @@ def test_testcase(testcase):
     else:
         intensity_cutoff = 1e4
 
-    seq_mass = meta["sequence_mass"]
+    # Build breakage dict
+    breakage_dict = build_breakage_dict(
+        mass_5_prime=meta["label_mass_5T"], mass_3_prime=meta["label_mass_3T"]
+    )
+
+    # Standardize sequence mass (remove START_END breakage to gain SU mass)
+    seq_mass = (
+        meta["sequence_mass"]
+        - [
+            mass * TOLERANCE
+            for mass in breakage_dict
+            if "START_END" in breakage_dict[mass]
+        ][0]
+    )
 
     matching_threshold = MATCHING_THRESHOLD
 
@@ -84,7 +97,7 @@ def test_testcase(testcase):
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
             seq_mass=seq_mass,
-            max_seq_len=len(true_seq),
+            seq_len=len(true_seq),
             tolerance=matching_threshold,
             precision=TOLERANCE,
         )
@@ -111,17 +124,11 @@ def test_testcase(testcase):
             reduced_set=True,
             compression_rate=COMPRESSION_RATE,
             seq_mass=seq_mass,
-            max_seq_len=len(true_seq),
+            seq_len=len(true_seq),
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
         )
-
-    # fragment_masses = pl.Series(fragments.select(pl.col("observed_mass"))).to_list()
-
-    breakage_dict = build_breakage_dict(
-        mass_5_prime=meta["label_mass_5T"], mass_3_prime=meta["label_mass_3T"]
-    )
 
     fragments = classify_fragments(
         fragments,

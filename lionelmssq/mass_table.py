@@ -23,6 +23,21 @@ class NucleotideMass:
     is_modification: bool
     modification_rate: float
 
+    def __eq__(self, other):
+        return self.mass == other.mass
+
+    def __le__(self, other):
+        return self.mass <= other.mass
+
+    def __lt__(self, other):
+        return self.mass < other.mass
+
+    def __ge__(self, other):
+        return self.mass >= other.mass
+
+    def __gt__(self, other):
+        return self.mass > other.mass
+
 
 @dataclass
 class DynamicProgrammingTable:
@@ -31,6 +46,7 @@ class DynamicProgrammingTable:
     precision: float
     tolerance: float
     max_seq_len: int
+    seq_len: int
     modification_rate: float
     masses: List[NucleotideMass]
 
@@ -41,7 +57,7 @@ class DynamicProgrammingTable:
         tolerance: float,
         precision: float,
         seq_mass: float,
-        max_seq_len: int,
+        seq_len: int,
         modification_rate: float = 0.5,
         reduced_table: bool = False,
         reduced_set: bool = False,
@@ -50,7 +66,7 @@ class DynamicProgrammingTable:
         self.precision = precision
         self.tolerance = tolerance
         self.seq_mass = seq_mass
-        self.max_seq_len = max_seq_len
+        self.seq_len = seq_len
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
             table_path=set_table_path(
@@ -59,6 +75,9 @@ class DynamicProgrammingTable:
             reduce_table=reduced_table,
             integer_masses=[mass.mass for mass in self.masses],
         )
+
+        # Set upper bound for sequence length
+        self.max_seq_len = int(seq_mass / precision / min(self.masses[1:]).mass)
 
         # Set universal modification rate
         self.set_universal_modification_rate(modification_rate)

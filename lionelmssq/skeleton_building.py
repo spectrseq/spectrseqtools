@@ -149,8 +149,12 @@ class SkeletonBuilder:
     def _align_skeletons(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
     ) -> List[Set[str]]:
-        skeleton_seq = [set() for _ in range(self.dp_table.max_seq_len)]
-        for i in range(self.dp_table.max_seq_len):
+        # Adapt directed skeleton parts to have correct length
+        start_skeleton = start_skeleton[: self.dp_table.seq_len]
+        end_skeleton = end_skeleton[len(end_skeleton) - self.dp_table.seq_len :]
+
+        skeleton_seq = [set() for _ in range(self.dp_table.seq_len)]
+        for i in range(self.dp_table.seq_len):
             # Preferentially consider nucleotides where start and end agree
             skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
             # If the intersection is empty, use the union instead

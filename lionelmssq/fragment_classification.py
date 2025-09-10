@@ -88,18 +88,8 @@ def classify_fragments(
         .filter(pl.col("observed_mass") < mass_cutoff)
     )
 
-    # Select highest valid SU mass, i.e. sequence mass without START_END breakage
-    mass_cutoff = (
-        dp_table.seq_mass
-        - [
-            mass * dp_table.precision
-            for mass in breakage_dict
-            if "START_END" in breakage_dict[mass]
-        ][0]
-    )
-
-    # Update sequence mass after standardization
-    dp_table.seq_mass = mass_cutoff
+    # Select highest valid SU mass, i.e. the sequence mass
+    mass_cutoff = dp_table.seq_mass
 
     # Filter fragments based on mass cutoff
     fragments = filter_by_sequence_mass(mass_cutoff, fragments)

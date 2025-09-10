@@ -51,7 +51,6 @@ def main():
     with open(fragment_dir / f"{file_prefix}.meta.yaml", "r") as f:
         meta = yaml.safe_load(f)
 
-    seq_mass = meta["sequence_mass"]
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
@@ -69,28 +68,38 @@ def main():
     )
     threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
 
+    # Build breakage dict
+    breakage_dict = build_breakage_dict(
+        mass_5_prime=start_tag,
+        mass_3_prime=end_tag,
+    )
+
+    # Standardize sequence mass (remove START_END breakage to gain SU mass)
+    seq_mass = (
+        meta["sequence_mass"]
+        - [
+            mass * TOLERANCE
+            for mass in breakage_dict
+            if "START_END" in breakage_dict[mass]
+        ][0]
+    )
+
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
         tolerance=threshold,
         precision=TOLERANCE,
         modification_rate=settings.modification_rate,
-        max_seq_len=settings.seq_len,
+        seq_len=settings.seq_len,
         seq_mass=seq_mass,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
     )
 
-    # Build breakage dict
-    breakages = build_breakage_dict(
-        mass_5_prime=start_tag,
-        mass_3_prime=end_tag,
-    )
-
     fragments = classify_fragments(
         fragment_masses=fragments,
         dp_table=dp_table,
-        breakage_dict=breakages,
+        breakage_dict=breakage_dict,
         output_file_path=fragment_dir / f"{file_prefix}.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
     )
