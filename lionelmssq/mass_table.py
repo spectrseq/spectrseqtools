@@ -47,6 +47,8 @@ class DynamicProgrammingTable:
     tolerance: float
     max_seq_len: int
     seq_len: int
+    seq_mass: float
+    seq_mass_obs: float
     modification_rate: float
     masses: List[NucleotideMass]
 
@@ -56,7 +58,8 @@ class DynamicProgrammingTable:
         compression_rate: int,
         tolerance: float,
         precision: float,
-        seq_mass: float,
+        seq_mass_obs: float,
+        seq_mass_su: float,
         seq_len: int,
         modification_rate: float = 0.5,
         reduced_table: bool = False,
@@ -65,7 +68,8 @@ class DynamicProgrammingTable:
         self.compression_per_cell = compression_rate
         self.precision = precision
         self.tolerance = tolerance
-        self.seq_mass = seq_mass
+        self.seq_mass = seq_mass_su
+        self.seq_mass_obs = seq_mass_obs
         self.seq_len = seq_len
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
@@ -77,7 +81,28 @@ class DynamicProgrammingTable:
         )
 
         # Set upper bound for sequence length
-        self.max_seq_len = int(seq_mass / precision / min(self.masses[1:]).mass)
+        self.max_seq_len = int(seq_mass_su / precision / min(self.masses[1:]).mass)
+        # print(seq_mass_su, seq_mass_obs)
+        # print(
+        #     "min",
+        #     compute_len_bound(
+        #         mass=seq_mass_su,
+        #         dp_table=self,
+        #         max_modifications=round(modification_rate * self.max_seq_len),
+        #         threshold=seq_mass_obs * tolerance,
+        #         dir="min",
+        #     ),
+        # )
+        # print(
+        #     "max",
+        #     compute_len_bound(
+        #         mass=seq_mass_su,
+        #         dp_table=self,
+        #         max_modifications=round(modification_rate * self.max_seq_len),
+        #         threshold=seq_mass_obs * tolerance,
+        #         dir="max",
+        #     ),
+        # )
 
         # Set universal modification rate
         self.set_universal_modification_rate(modification_rate)
@@ -306,3 +331,144 @@ def load_dp_table(table_path, reduce_table, integer_masses):
 
     # Read DP table
     return np.load(f"{table_path}.npy")
+
+
+def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -> int:
+    """
+    Return bound on length for any sequence that could explain the given mass.
+    """
+    # Set compression rate
+    compression_rate = dp_table.compression_per_cell
+
+    # Set maximum number of modifications
+    max_modifications = round(dp_table.modification_rate * dp_table.max_seq_len)
+
+    # Convert the target to an integer for easy operations
+    target = int(round(dp_table.seq_mass / dp_table.precision, 0))
+
+    # Convert the threshold to integer
+    threshold = int(
+        np.ceil(dp_table.tolerance * dp_table.seq_mass_obs / dp_table.precision)
+    )
+
+    # Initialize memorization dict
+    memo = {}
+
+    # Select default value based on desired bound
+    match dir:
+        case "lower":
+            default_bound = dp_table.max_seq_len
+        case "upper":
+            default_bound = -1
+        case _:
+            raise NotImplementedError(f"Support for '{dir}' is currently not given.")
+
+    def backtrack(total_mass, current_idx, max_mods_all, max_mods_ind):
+        current_weight = dp_table.masses[current_idx].mass
+
+        # If the result for this state is already computed, return it
+        if (total_mass, current_idx) in memo:
+            return memo[(total_mass, current_idx)]
+
+        # Return default value for cells outside of table
+        if total_mass < 0:
+            return default_bound
+
+        # Initialize new counter for valid start in table
+        if total_mass == 0:
+            return 0
+
+        # Raise error if mass is not in table (due to its size)
+        if total_mass >= len(dp_table.table[0]) * compression_rate:
+            raise NotImplementedError(
+                f"The value {value} is not in the DP table. Extend its "
+                f"size if you want to compute larger masses."
+            )
+
+        current_value = (
+            dp_table[current_idx, total_mass]
+            if compression_rate == 1
+            else dp_table.table[current_idx, total_mass // compression_rate]
+            >> 2 * (compression_rate - 1 - total_mass % compression_rate)
+        )
+
+        # Return default value for unreachable cells
+        if compression_rate != 1 and current_value % compression_rate == 0.0:
+            return default_bound
+
+        # Initialize list of possible bounds
+        bounds = [default_bound]
+
+        # Backtrack to the next row above if possible
+        if current_value % 2 == 1:
+            bounds.append(
+                backtrack(
+                    total_mass,
+                    current_idx - 1,
+                    max_mods_all,
+                    round(
+                        dp_table.max_seq_len
+                        * dp_table.masses[current_idx - 1].modification_rate
+                    ),
+                )
+            )
+
+        # Backtrack to the next left-side column if possible
+        if (current_value >> 1) % 2 == 1:
+            if not dp_table.masses[current_idx].is_modification or (
+                max_mods_all > 0 and max_mods_ind > 0
+            ):
+                # Adjust number of still allowed modifications if necessary
+                if dp_table.masses[current_idx].is_modification:
+                    max_mods_all -= 1
+                    max_mods_ind -= 1
+
+                bounds.append(
+                    backtrack(
+                        total_mass - current_weight,
+                        current_idx,
+                        max_mods_all,
+                        max_mods_ind,
+                    )
+                    + 1
+                )
+
+        # Select result based on desired bound
+        match dir:
+            case "lower":
+                result = min(bounds)
+            case "upper":
+                result = max(bounds)
+            case _:
+                raise NotImplementedError(
+                    f"Support for '{dir}' is currently not given."
+                )
+
+        # Store result in memo
+        memo[(total_mass, current_idx)] = result
+
+        return result
+
+    # Compute bounds for all masses within the threshold interval
+    solutions = []
+    for value in range(
+        target - threshold,
+        target + threshold + 1,
+    ):
+        solutions.append(
+            backtrack(
+                value,
+                len(dp_table.masses) - 1,
+                max_modifications,
+                round(dp_table.max_seq_len * dp_table.masses[-1].modification_rate),
+            )
+        )
+
+    # Return solution based on desired bound
+    match dir:
+        case "lower":
+            return min(solutions)
+        case "upper":
+            return max(solutions)
+        case _:
+            raise NotImplementedError(f"Support for '{dir}' is currently not given.")

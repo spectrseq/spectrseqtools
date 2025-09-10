@@ -24,7 +24,7 @@ from lionelmssq.masses import (
 _TESTCASES = importlib.resources.files("tests") / "testcases"
 
 TESTS = ["test_01", "test_02", "test_03"]
-# TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_08"]
+# TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_06", "test_07"]
 
 
 @pytest.mark.parametrize(
@@ -56,8 +56,9 @@ def test_testcase(testcase):
     )
 
     # Standardize sequence mass (remove START_END breakage to gain SU mass)
-    seq_mass = (
-        meta["sequence_mass"]
+    seq_mass_obs = meta["sequence_mass"]
+    seq_mass_su = (
+        seq_mass_obs
         - [
             mass * TOLERANCE
             for mass in breakage_dict
@@ -96,7 +97,8 @@ def test_testcase(testcase):
             reduced_table=True,
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
-            seq_mass=seq_mass,
+            seq_mass_su=seq_mass_su,
+            seq_mass_obs=seq_mass_obs,
             seq_len=len(true_seq),
             tolerance=matching_threshold,
             precision=TOLERANCE,
@@ -123,7 +125,8 @@ def test_testcase(testcase):
             reduced_table=False,
             reduced_set=True,
             compression_rate=COMPRESSION_RATE,
-            seq_mass=seq_mass,
+            seq_mass_su=seq_mass_su,
+            seq_mass_obs=seq_mass_obs,
             seq_len=len(true_seq),
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,

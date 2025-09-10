@@ -75,8 +75,9 @@ def main():
     )
 
     # Standardize sequence mass (remove START_END breakage to gain SU mass)
-    seq_mass = (
-        meta["sequence_mass"]
+    seq_mass_obs = meta["sequence_mass"]
+    seq_mass_su = (
+        seq_mass_obs
         - [
             mass * TOLERANCE
             for mass in breakage_dict
@@ -91,7 +92,8 @@ def main():
         precision=TOLERANCE,
         modification_rate=settings.modification_rate,
         seq_len=settings.seq_len,
-        seq_mass=seq_mass,
+        seq_mass_su=seq_mass_su,
+        seq_mass_obs=seq_mass_obs,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
     )
