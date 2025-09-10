@@ -42,13 +42,12 @@ def calculate_error_threshold(mass1: float, mass2: float, threshold: float) -> f
 def calculate_explanations(
     diff: float,
     threshold: float,
-    modification_rate: float,
     dp_table: DynamicProgrammingTable,
 ) -> List[Explanation]:
     explanation_list = explain_mass_with_table(
         diff,
         dp_table=dp_table,
-        max_modifications=round(modification_rate * dp_table.max_seq_len),
+        max_modifications=round(dp_table.modification_rate * dp_table.max_seq_len),
         threshold=threshold,
     ).explanations
 

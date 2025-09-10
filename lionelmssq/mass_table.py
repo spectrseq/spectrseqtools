@@ -31,6 +31,7 @@ class DynamicProgrammingTable:
     precision: float
     tolerance: float
     max_seq_len: int
+    modification_rate: float
     masses: List[NucleotideMass]
 
     def __init__(
@@ -40,6 +41,7 @@ class DynamicProgrammingTable:
         tolerance: float,
         precision: float,
         max_seq_len: int,
+        modification_rate: float = 0.5,
         reduced_table: bool = False,
         reduced_set: bool = False,
     ):
@@ -56,12 +58,21 @@ class DynamicProgrammingTable:
             integer_masses=[mass.mass for mass in self.masses],
         )
 
-    def adapt_individual_modification_rates_by_universal_one(self, universal_rate):
+        # Set universal modification rate
+        self.set_universal_modification_rate(modification_rate)
+
+    def set_universal_modification_rate(self, modification_rate: float):
+        self.modification_rate = modification_rate
+
+        # Adapt individual modification rates to universal one
+        self._adapt_individual_modification_rates_by_universal_one()
+
+    def _adapt_individual_modification_rates_by_universal_one(self):
         for nucleotide_mass in self.masses:
             if not nucleotide_mass.is_modification:
                 continue
-            if nucleotide_mass.modification_rate > universal_rate:
-                nucleotide_mass.modification_rate = universal_rate
+            if nucleotide_mass.modification_rate > self.modification_rate:
+                nucleotide_mass.modification_rate = self.modification_rate
 
     def adapt_individual_modification_rates_by_alphabet_reduction(self, alphabet):
         for nucleotide_mass in self.masses:

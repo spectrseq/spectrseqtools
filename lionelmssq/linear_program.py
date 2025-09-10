@@ -33,9 +33,7 @@ def get_singleton_set_item(set_: Set[Any]) -> Any:
 
 
 class LinearProgramInstance:
-    def __init__(
-        self, fragments, nucleosides, dp_table, skeleton_seq, modification_rate
-    ):
+    def __init__(self, fragments, nucleosides, dp_table, skeleton_seq):
         # i = 1,...,n: positions in the sequence
         # j = 1,...,m: fragments
         # b = 1,...,k: (modified) bases
@@ -61,9 +59,7 @@ class LinearProgramInstance:
             fragment_masses, valid_fragment_range
         )
 
-        self.problem = self._define_lp_problem(
-            valid_fragment_range, modification_rate, dp_table
-        )
+        self.problem = self._define_lp_problem(valid_fragment_range, dp_table)
 
     def _set_x(self, valid_fragment_range, fragments):
         x = [
@@ -164,7 +160,7 @@ class LinearProgramInstance:
             for j in valid_fragment_range
         ]
 
-    def _define_lp_problem(self, valid_fragment_range, modification_rate, dp_table):
+    def _define_lp_problem(self, valid_fragment_range, dp_table):
         problem = LpProblem("fragment_filter", LpMinimize)
 
         # weight_diff_abs: absolute value of weight_diff
@@ -188,7 +184,7 @@ class LinearProgramInstance:
                 for b in self.nucleoside_names
                 if b not in UNMODIFIED_BASES
             ]
-        ) <= np.ceil(modification_rate * self.seq_len)
+        ) <= np.ceil(dp_table.modification_rate * self.seq_len)
 
         # Enforce individual modification rates
         for mass in dp_table.masses:

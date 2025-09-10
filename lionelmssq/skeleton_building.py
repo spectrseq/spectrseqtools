@@ -18,11 +18,10 @@ class SkeletonBuilder:
     dp_table: DynamicProgrammingTable
 
     def build_skeleton(
-        self, modification_rate: float, fragments: pl.DataFrame
+        self, fragments: pl.DataFrame
     ) -> Tuple[List[Set[str]], pl.DataFrame]:
         # Build skeleton sequence from 5'-end
         start_skeleton, start_fragments = self._predict_skeleton(
-            modification_rate=modification_rate,
             fragments=fragments.filter(pl.col("breakage").str.contains("START")),
             skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
         )
@@ -30,7 +29,6 @@ class SkeletonBuilder:
 
         # Build skeleton sequence from 3'-end
         end_skeleton, end_fragments = self._predict_skeleton(
-            modification_rate=modification_rate,
             fragments=fragments.filter(pl.col("breakage").str.contains("END")),
             skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
         )
@@ -66,8 +64,7 @@ class SkeletonBuilder:
 
     def _predict_skeleton(
         self,
-        modification_rate,
-        fragments,
+        fragments: pl.DataFrame,
         skeleton_seq: Optional[List[Set[str]]] = None,
     ) -> Tuple[List[Set[str]], pl.DataFrame]:
         # Initialize skeleton sequence (if not already given)
@@ -110,7 +107,6 @@ class SkeletonBuilder:
                 prev_bin=last_valid_bin,
                 current_bin=current_bin,
                 fragments=fragments,
-                modification_rate=modification_rate,
             )
 
             # Skip bins without any explanation
@@ -172,7 +168,6 @@ class SkeletonBuilder:
         prev_bin: list,
         current_bin: list,
         fragments: pl.DataFrame,
-        modification_rate: float,
     ) -> List[Explanation]:
         # Collect mass explanations for first bin
         if prev_bin is None:
@@ -181,7 +176,6 @@ class SkeletonBuilder:
                     diff=fragments.item(idx, "standard_unit_mass"),
                     prev_mass=0.0,
                     current_mass=fragments.item(idx, "observed_mass"),
-                    modification_rate=modification_rate,
                 )
                 for idx in current_bin
             ]
@@ -193,7 +187,6 @@ class SkeletonBuilder:
                     - fragments.item(prev_idx, "standard_unit_mass"),
                     prev_mass=fragments.item(prev_idx, "observed_mass"),
                     current_mass=fragments.item(current_idx, "observed_mass"),
-                    modification_rate=modification_rate,
                 )
                 for prev_idx in prev_bin
                 for current_idx in current_bin
@@ -225,7 +218,6 @@ class SkeletonBuilder:
         diff: float,
         prev_mass: float,
         current_mass: float,
-        modification_rate: float,
     ) -> List[Explanation]:
         if diff in self.explanations:
             return self.explanations.get(diff, [])
@@ -238,7 +230,6 @@ class SkeletonBuilder:
             return calculate_explanations(
                 diff,
                 threshold,
-                modification_rate,
                 self.dp_table,
             )
 

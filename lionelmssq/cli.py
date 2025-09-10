@@ -74,6 +74,7 @@ def main():
         compression_rate=int(COMPRESSION_RATE),
         tolerance=threshold,
         precision=TOLERANCE,
+        modification_rate=settings.modification_rate,
         max_seq_len=settings.seq_len,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
@@ -100,7 +101,6 @@ def main():
     ).predict(
         fragments=fragments,
         solver_params=solver_params,
-        modification_rate=settings.modification_rate,
     )
 
     # save fragment predictions
