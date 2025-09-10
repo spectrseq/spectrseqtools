@@ -51,8 +51,8 @@ def main():
     with open(fragment_dir / f"{file_prefix}.meta.yaml", "r") as f:
         meta = yaml.safe_load(f)
 
+    seq_mass = meta["sequence_mass"]
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
-    seq_mass = meta["sequence_mass"] if "sequence_mass" in meta else None
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
@@ -76,6 +76,7 @@ def main():
         precision=TOLERANCE,
         modification_rate=settings.modification_rate,
         max_seq_len=settings.seq_len,
+        seq_mass=seq_mass,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
     )
@@ -92,7 +93,6 @@ def main():
         breakage_dict=breakages,
         output_file_path=fragment_dir / f"{file_prefix}.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
-        seq_mass=seq_mass,
     )
 
     prediction = Predictor(

@@ -50,10 +50,7 @@ def test_testcase(testcase):
     else:
         intensity_cutoff = 1e4
 
-    if "sequence_mass" in meta:
-        seq_mass = meta["sequence_mass"]
-    else:
-        seq_mass = None
+    seq_mass = meta["sequence_mass"]
 
     matching_threshold = MATCHING_THRESHOLD
 
@@ -86,6 +83,7 @@ def test_testcase(testcase):
             reduced_table=True,
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
+            seq_mass=seq_mass,
             max_seq_len=len(true_seq),
             tolerance=matching_threshold,
             precision=TOLERANCE,
@@ -112,6 +110,7 @@ def test_testcase(testcase):
             reduced_table=False,
             reduced_set=True,
             compression_rate=COMPRESSION_RATE,
+            seq_mass=seq_mass,
             max_seq_len=len(true_seq),
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
@@ -130,7 +129,6 @@ def test_testcase(testcase):
         breakage_dict=breakage_dict,
         output_file_path=base_path / "fragments.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
-        seq_mass=seq_mass,
     )
 
     solver_params = {

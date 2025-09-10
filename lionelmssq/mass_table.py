@@ -40,6 +40,7 @@ class DynamicProgrammingTable:
         compression_rate: int,
         tolerance: float,
         precision: float,
+        seq_mass: float,
         max_seq_len: int,
         modification_rate: float = 0.5,
         reduced_table: bool = False,
@@ -48,6 +49,7 @@ class DynamicProgrammingTable:
         self.compression_per_cell = compression_rate
         self.precision = precision
         self.tolerance = tolerance
+        self.seq_mass = seq_mass
         self.max_seq_len = max_seq_len
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
