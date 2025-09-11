@@ -9,7 +9,7 @@ from lionelmssq.common import (
     calculate_error_threshold,
     calculate_explanations,
 )
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, compute_sequence_length_bound
 
 
 @dataclass
@@ -149,14 +149,20 @@ class SkeletonBuilder:
     def _align_skeletons(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
     ) -> List[Set[str]]:
-        # Adapt directed skeleton parts to have correct length
-        start_skeleton = start_skeleton[: self.dp_table.seq_len]
-        end_skeleton = end_skeleton[len(end_skeleton) - self.dp_table.seq_len :]
+        # Select best sequence length
+        seq_len = self.select_sequence_length(
+            start_skeleton=start_skeleton, end_skeleton=end_skeleton
+        )
 
-        skeleton_seq = [set() for _ in range(self.dp_table.seq_len)]
-        for i in range(self.dp_table.seq_len):
+        # Adapt directed skeleton parts to have correct length
+        start_skeleton = start_skeleton[:seq_len]
+        end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
+
+        skeleton_seq = [set() for _ in range(seq_len)]
+        for i in range(seq_len):
             # Preferentially consider nucleotides where start and end agree
             skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
+
             # If the intersection is empty, use the union instead
             if not skeleton_seq[i]:
                 skeleton_seq[i] = start_skeleton[i].union(end_skeleton[i])
@@ -166,6 +172,46 @@ class SkeletonBuilder:
         #  then the same nucleotide cannot be selected in the other position!
 
         return skeleton_seq
+
+    def select_sequence_length(self, start_skeleton, end_skeleton) -> int:
+        # Reduce nucleotide alphabet based on skeleton parts
+        nucleotides = {
+            nuc
+            for skeleton_pos in start_skeleton + end_skeleton
+            for nuc in skeleton_pos
+        }
+        self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
+            nucleotides
+        )
+
+        # Determine lower and upper bound
+        min_len = compute_sequence_length_bound(dp_table=self.dp_table, dir="lower")
+        max_len = compute_sequence_length_bound(dp_table=self.dp_table, dir="upper")
+
+        # Determine sequence length with highest similarity between skeleton parts
+        best_len = min_len
+        best_val = -1
+        for len_cand in range(min_len, max_len + 1):
+            # Determine normalized sum of Jaccard similarity in each position
+            value = (
+                sum(
+                    map(
+                        jaccard_index,
+                        zip(
+                            start_skeleton[:len_cand],
+                            end_skeleton[len(end_skeleton) - len_cand :],
+                        ),
+                    )
+                )
+                / len_cand
+            )
+
+            # Update best found sequence length if needed
+            if value > best_val:
+                best_val = value
+                best_len = len_cand
+
+        return best_len
 
     def explain_bin_differences(
         self,
@@ -183,6 +229,7 @@ class SkeletonBuilder:
                 )
                 for idx in current_bin
             ]
+
         # Collect mass explanations between previous and current bin
         else:
             explanations = [
@@ -225,17 +272,16 @@ class SkeletonBuilder:
     ) -> List[Explanation]:
         if diff in self.explanations:
             return self.explanations.get(diff, [])
-        else:
-            threshold = calculate_error_threshold(
-                prev_mass,
-                current_mass,
-                self.dp_table.tolerance,
-            )
-            return calculate_explanations(
-                diff,
-                threshold,
-                self.dp_table,
-            )
+        threshold = calculate_error_threshold(
+            prev_mass,
+            current_mass,
+            self.dp_table.tolerance,
+        )
+        return calculate_explanations(
+            diff,
+            threshold,
+            self.dp_table,
+        )
 
     def update_skeleton_for_given_explanations(
         self,
@@ -278,3 +324,12 @@ class SkeletonBuilder:
             # Update possible follow-up positions
             next_pos.update(p + expl_len for expl_len in alphabet_per_expl_len)
         return next_pos, skeleton_seq
+
+
+def jaccard_index(input: Tuple[Set[str], Set[str]]) -> float:
+    # Return score for perfect similarity if one set is empty
+    if len(input[0]) == 0 or len(input[1]) == 0:
+        return 1
+
+    # Return Jaccard score
+    return len(input[0].intersection(input[1])) / len(input[0].union(input[1]))
