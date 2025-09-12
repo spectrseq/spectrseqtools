@@ -61,7 +61,6 @@ def test_testcase_with_recursion(testcase, threshold):
         modification_rate=MOD_RATE,
         seq_mass_obs=testcase[0],
         seq_mass_su=testcase[0],
-        seq_len=len(testcase[1]),
         tolerance=threshold,
         precision=TOLERANCE,
     )
@@ -96,7 +95,6 @@ def test_testcase_with_table(testcase, compression, threshold, memo):
         modification_rate=MOD_RATE,
         seq_mass_obs=testcase[0],
         seq_mass_su=testcase[0],
-        seq_len=len(testcase[1]),
         tolerance=threshold,
         precision=TOLERANCE,
     )

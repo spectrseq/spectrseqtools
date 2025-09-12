@@ -99,7 +99,6 @@ def test_testcase(testcase):
             compression_rate=COMPRESSION_RATE,
             seq_mass_su=seq_mass_su,
             seq_mass_obs=seq_mass_obs,
-            seq_len=len(true_seq),
             tolerance=matching_threshold,
             precision=TOLERANCE,
         )
@@ -127,7 +126,6 @@ def test_testcase(testcase):
             compression_rate=COMPRESSION_RATE,
             seq_mass_su=seq_mass_su,
             seq_mass_obs=seq_mass_obs,
-            seq_len=len(true_seq),
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,

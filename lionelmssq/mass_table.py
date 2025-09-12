@@ -46,7 +46,6 @@ class DynamicProgrammingTable:
     precision: float
     tolerance: float
     max_seq_len: int
-    seq_len: int
     seq_mass: float
     seq_mass_obs: float
     modification_rate: float
@@ -60,7 +59,6 @@ class DynamicProgrammingTable:
         precision: float,
         seq_mass_obs: float,
         seq_mass_su: float,
-        seq_len: int,
         modification_rate: float = 0.5,
         reduced_table: bool = False,
         reduced_set: bool = False,
@@ -70,7 +68,6 @@ class DynamicProgrammingTable:
         self.tolerance = tolerance
         self.seq_mass = seq_mass_su
         self.seq_mass_obs = seq_mass_obs
-        self.seq_len = seq_len
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
             table_path=set_table_path(
@@ -82,27 +79,6 @@ class DynamicProgrammingTable:
 
         # Set upper bound for sequence length
         self.max_seq_len = int(seq_mass_su / precision / min(self.masses[1:]).mass)
-        # print(seq_mass_su, seq_mass_obs)
-        # print(
-        #     "min",
-        #     compute_len_bound(
-        #         mass=seq_mass_su,
-        #         dp_table=self,
-        #         max_modifications=round(modification_rate * self.max_seq_len),
-        #         threshold=seq_mass_obs * tolerance,
-        #         dir="min",
-        #     ),
-        # )
-        # print(
-        #     "max",
-        #     compute_len_bound(
-        #         mass=seq_mass_su,
-        #         dp_table=self,
-        #         max_modifications=round(modification_rate * self.max_seq_len),
-        #         threshold=seq_mass_obs * tolerance,
-        #         dir="max",
-        #     ),
-        # )
 
         # Set universal modification rate
         self.set_universal_modification_rate(modification_rate)

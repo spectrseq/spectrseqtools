@@ -18,7 +18,6 @@ import yaml
 
 class Settings(Tap):
     fragments: Path  # path to .tsv table with observed fragments to use for prediction
-    seq_len: int  # length of the sequence to predict
     fragment_predictions: (
         Path  # path to .tsv table that shall contain the per fragment predictions
     )
@@ -91,7 +90,6 @@ def main():
         tolerance=threshold,
         precision=TOLERANCE,
         modification_rate=settings.modification_rate,
-        seq_len=settings.seq_len,
         seq_mass_su=seq_mass_su,
         seq_mass_obs=seq_mass_obs,
         reduced_table=reduce_table,
