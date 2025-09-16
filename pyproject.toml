@@ -6,7 +6,7 @@ authors = ["Johannes Koester <johannes.koester@uni-due.de>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.14"
 polars = "^1.9.0"
 pulp = "^2.3.0"
 pytest = "^8.3.3"
@@ -16,6 +16,10 @@ pyyaml = "^6.0.2"
 loguru = "^0.7.2"
 numpy = "^2.2.3"
 platformdirs = "^4.3.8"
+clr-loader = "^0.2.7.post0"
+ms-deisotope = "^0.0.60"
+pythonnet = "^3.0.5"
+tqdm = "^4.67.1"
 
 [tool.poetry.dev-dependencies]
 ruff = "^0.6.9"
