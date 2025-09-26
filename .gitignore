@@ -8,3 +8,4 @@ poetry.lock
 tests/self_test*
 tests/testcases/*/fragments.plot.html
 tests/testcases/*/fragments.standard_unit_fragments.tsv
+tests/scratch_*.py

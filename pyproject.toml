@@ -20,6 +20,8 @@ clr-loader = "^0.2.7.post0"
 ms-deisotope = "^0.0.60"
 pythonnet = "^3.0.5"
 tqdm = "^4.67.1"
+scikit-learn = "^1.7.2"
+dbscan1d = "^0.2.3"
 
 [tool.poetry.dev-dependencies]
 ruff = "^0.6.9"
