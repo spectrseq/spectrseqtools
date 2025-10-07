@@ -326,7 +326,7 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
     # Select default value based on desired bound
     match dir:
         case "lower":
-            default_bound = dp_table.seq.max_len
+            default_bound = dp_table.seq.max_len + 1
         case "upper":
             default_bound = -1
         case _:
@@ -433,11 +433,17 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
             )
         )
 
-    # Return solution based on desired bound
+    # Return solution based on desired bound and replace default value if selected
     match dir:
         case "lower":
-            return min(solutions)
+            opt_len = min(solutions)
+            if opt_len == default_bound:
+                opt_len = 1
         case "upper":
-            return max(solutions)
+            opt_len = max(solutions)
+            if opt_len == default_bound:
+                opt_len = dp_table.seq.max_len
         case _:
             raise NotImplementedError(f"Support for '{dir}' is currently not given.")
+
+    return opt_len
