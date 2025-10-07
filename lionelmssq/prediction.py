@@ -38,15 +38,8 @@ class Predictor:
     def predict(
         self,
         fragments: pl.DataFrame,
-        seq_len: int,
         solver_params: dict,
-        modification_rate: float = 0.5,
     ) -> Prediction:
-        # Adapt individual modification rates to universal one
-        self.dp_table.adapt_individual_modification_rates_by_universal_one(
-            modification_rate
-        )
-
         fragments = (
             fragments.with_row_index(name="orig_index")
             .sort("standard_unit_mass")
@@ -70,11 +63,7 @@ class Predictor:
 
         # Roughly explain the mass differences (to reduce the alphabet)
         # Note there may be faulty mass fragments leading to not truly existent values
-        explanations = self.collect_diff_explanations_for_su(
-            modification_rate=modification_rate,
-            fragments=fragments,
-            seq_len=seq_len,
-        )
+        explanations = self.collect_diff_explanations_for_su(fragments=fragments)
 
         # TODO: Also consider that the observations are not complete and that
         #  we probably don't see all the letters as diffs or singletons.
@@ -94,14 +83,11 @@ class Predictor:
 
         skeleton_builder = SkeletonBuilder(
             explanations=explanations,
-            seq_len=seq_len,
             dp_table=self.dp_table,
         )
 
         # Build skeleton sequence from both sides and align them into final sequence
-        skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(
-            modification_rate, fragments
-        )
+        skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(fragments)
 
         # Reduce nucleotide alphabet based on skeleton
         nucleotides = {nuc for skeleton_pos in skeleton_seq for nuc in skeleton_pos}
@@ -131,7 +117,6 @@ class Predictor:
             fragments=fragments,
             masses=masses,
             skeleton_seq=skeleton_seq,
-            modification_rate=modification_rate,
             solver_params=solver_params,
         )
         print(
@@ -161,7 +146,6 @@ class Predictor:
             nucleosides=masses,
             dp_table=self.dp_table,
             skeleton_seq=skeleton_seq,
-            modification_rate=modification_rate,
         )
 
         return Prediction(*lp_instance.evaluate(solver_params))
@@ -188,7 +172,6 @@ class Predictor:
         fragments: pl.DataFrame,
         masses: list,
         skeleton_seq: list,
-        modification_rate: float,
         solver_params: dict,
     ) -> pl.DataFrame:
         is_invalid = []
@@ -205,7 +188,6 @@ class Predictor:
                 nucleosides=masses,
                 dp_table=self.dp_table,
                 skeleton_seq=skeleton_seq,
-                modification_rate=modification_rate,
             )
 
             # Check whether fragment can feasibly be aligned to skeleton
@@ -219,23 +201,14 @@ class Predictor:
         # Return only valid fragments
         return fragments.filter(~pl.col("index").is_in(is_invalid))
 
-    def collect_diff_explanations_for_su(
-        self,
-        modification_rate,
-        fragments,
-        seq_len,
-    ) -> dict:
+    def collect_diff_explanations_for_su(self, fragments: pl.DataFrame) -> dict:
         # Collect explanation for all reasonable mass differences for each side
         explanations = {
             **self.collect_explanations_per_side(
                 fragments=fragments.filter(pl.col("breakage").str.contains("START")),
-                modification_rate=modification_rate,
-                seq_len=seq_len,
             ),
             **self.collect_explanations_per_side(
                 fragments=fragments.filter(pl.col("breakage").str.contains("END")),
-                modification_rate=modification_rate,
-                seq_len=seq_len,
             ),
         }
 
@@ -248,19 +221,12 @@ class Predictor:
             explanations[singleton[idx_su_mass]] = calculate_explanations(
                 diff=singleton[idx_su_mass],
                 threshold=self.dp_table.tolerance * singleton[idx_observed_mass],
-                modification_rate=modification_rate,
-                seq_len=seq_len,
                 dp_table=self.dp_table,
             )
 
         return explanations
 
-    def collect_explanations_per_side(
-        self,
-        fragments,
-        modification_rate,
-        seq_len,
-    ):
+    def collect_explanations_per_side(self, fragments: pl.DataFrame) -> dict:
         max_weight = (
             max(self.explanation_masses.get_column("monoisotopic_mass").to_list())
             + PHOSPHATE_LINK_MASS
@@ -293,9 +259,7 @@ class Predictor:
             )
             expl = calculate_explanations(
                 diff=diff,
-                threshold=diff_error,  # * diff,
-                modification_rate=modification_rate,
-                seq_len=seq_len,
+                threshold=diff_error,
                 dp_table=self.dp_table,
             )
             if expl is not None and len(expl) >= 1:

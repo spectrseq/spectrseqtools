@@ -4,7 +4,7 @@ import os
 import pytest
 
 from lionelmssq.cli import select_solver
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
 from lionelmssq.plotting import plot_prediction
@@ -24,7 +24,7 @@ from lionelmssq.masses import (
 _TESTCASES = importlib.resources.files("tests") / "testcases"
 
 TESTS = ["test_01", "test_02", "test_03"]
-# TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_08"]
+# TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_06", "test_07"]
 
 
 @pytest.mark.parametrize(
@@ -50,10 +50,21 @@ def test_testcase(testcase):
     else:
         intensity_cutoff = 1e4
 
-    if "sequence_mass" in meta:
-        seq_mass = meta["sequence_mass"]
-    else:
-        seq_mass = None
+    # Build breakage dict
+    breakage_dict = build_breakage_dict(
+        mass_5_prime=meta["label_mass_5T"], mass_3_prime=meta["label_mass_3T"]
+    )
+
+    # Standardize sequence mass (remove START_END breakage to gain SU mass)
+    seq_mass_obs = meta["sequence_mass"]
+    seq_mass_su = (
+        seq_mass_obs
+        - [
+            mass * TOLERANCE
+            for mass in breakage_dict
+            if "START_END" in breakage_dict[mass]
+        ][0]
+    )
 
     matching_threshold = MATCHING_THRESHOLD
 
@@ -81,6 +92,21 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
+        seq_info = SequenceInformation(
+            max_len=int(
+                seq_mass_su
+                / TOLERANCE
+                / min(
+                    pl.Series(
+                        explanation_masses.select("tolerated_integer_masses")
+                    ).to_list()
+                )
+            ),
+            su_mass=seq_mass_su,
+            obs_mass=seq_mass_obs,
+            modification_rate=0.5,
+        )
+
         dp_table = DynamicProgrammingTable(
             explanation_masses,
             reduced_table=True,
@@ -88,6 +114,7 @@ def test_testcase(testcase):
             compression_rate=COMPRESSION_RATE,
             tolerance=matching_threshold,
             precision=TOLERANCE,
+            seq=seq_info,
         )
 
     else:
@@ -106,6 +133,21 @@ def test_testcase(testcase):
 
         _, unique_masses, explanation_masses = initialize_nucleotide_df(reduce_set=True)
 
+        seq_info = SequenceInformation(
+            max_len=int(
+                seq_mass_su
+                / TOLERANCE
+                / min(
+                    pl.Series(
+                        explanation_masses.select("tolerated_integer_masses")
+                    ).to_list()
+                )
+            ),
+            su_mass=seq_mass_su,
+            obs_mass=seq_mass_obs,
+            modification_rate=0.5,
+        )
+
         dp_table = DynamicProgrammingTable(
             explanation_masses,
             reduced_table=False,
@@ -114,13 +156,8 @@ def test_testcase(testcase):
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
+            seq=seq_info,
         )
-
-    # fragment_masses = pl.Series(fragments.select(pl.col("observed_mass"))).to_list()
-
-    breakage_dict = build_breakage_dict(
-        mass_5_prime=meta["label_mass_5T"], mass_3_prime=meta["label_mass_3T"]
-    )
 
     fragments = classify_fragments(
         fragments,
@@ -128,7 +165,6 @@ def test_testcase(testcase):
         breakage_dict=breakage_dict,
         output_file_path=base_path / "fragments.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
-        seq_mass=seq_mass,
     )
 
     solver_params = {
@@ -143,7 +179,6 @@ def test_testcase(testcase):
         explanation_masses=explanation_masses,
     ).predict(
         fragments=fragments,
-        seq_len=len(true_seq),
         solver_params=solver_params,
     )
 

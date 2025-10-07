@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 from lionelmssq.fragment_classification import classify_fragments
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.masses import (
     COMPRESSION_RATE,
     MATCHING_THRESHOLD,
@@ -18,7 +18,6 @@ import yaml
 
 class Settings(Tap):
     fragments: Path  # path to .tsv table with observed fragments to use for prediction
-    seq_len: int  # length of the sequence to predict
     fragment_predictions: (
         Path  # path to .tsv table that shall contain the per fragment predictions
     )
@@ -52,7 +51,6 @@ def main():
         meta = yaml.safe_load(f)
 
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
-    seq_mass = meta["sequence_mass"] if "sequence_mass" in meta else None
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
@@ -69,28 +67,55 @@ def main():
     )
     threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
 
+    # Build breakage dict
+    breakage_dict = build_breakage_dict(
+        mass_5_prime=start_tag,
+        mass_3_prime=end_tag,
+    )
+
+    # Standardize sequence mass (remove START_END breakage to gain SU mass)
+    seq_mass_obs = meta["sequence_mass"]
+    seq_mass_su = (
+        seq_mass_obs
+        - [
+            mass * TOLERANCE
+            for mass in breakage_dict
+            if "START_END" in breakage_dict[mass]
+        ][0]
+    )
+
+    # Initialize SequenceInformation class
+    seq_info = SequenceInformation(
+        max_len=int(
+            seq_mass_su
+            / TOLERANCE
+            / min(
+                pl.Series(
+                    explanation_masses.select("tolerated_integer_masses")
+                ).to_list()
+            )
+        ),
+        su_mass=seq_mass_su,
+        obs_mass=seq_mass_obs,
+        modification_rate=settings.modification_rate,
+    )
+
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
         tolerance=threshold,
         precision=TOLERANCE,
+        seq=seq_info,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
-    )
-
-    # Build breakage dict
-    breakages = build_breakage_dict(
-        mass_5_prime=start_tag,
-        mass_3_prime=end_tag,
     )
 
     fragments = classify_fragments(
         fragment_masses=fragments,
         dp_table=dp_table,
-        breakage_dict=breakages,
+        breakage_dict=breakage_dict,
         output_file_path=fragment_dir / f"{file_prefix}.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
-        seq_mass=seq_mass,
     )
 
     prediction = Predictor(
@@ -98,9 +123,7 @@ def main():
         explanation_masses=explanation_masses,
     ).predict(
         fragments=fragments,
-        seq_len=settings.seq_len,
         solver_params=solver_params,
-        modification_rate=settings.modification_rate,
     )
 
     # save fragment predictions
