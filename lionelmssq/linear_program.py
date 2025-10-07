@@ -184,7 +184,7 @@ class LinearProgramInstance:
                 for b in self.nucleoside_names
                 if b not in UNMODIFIED_BASES
             ]
-        ) <= np.ceil(dp_table.modification_rate * self.seq_len)
+        ) <= np.ceil(dp_table.seq.modification_rate * self.seq_len)
 
         # Enforce individual modification rates
         for mass in dp_table.masses:

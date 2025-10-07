@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 from lionelmssq.fragment_classification import classify_fragments
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.masses import (
     COMPRESSION_RATE,
     MATCHING_THRESHOLD,
@@ -84,14 +84,28 @@ def main():
         ][0]
     )
 
+    # Initialize SequenceInformation class
+    seq_info = SequenceInformation(
+        max_len=int(
+            seq_mass_su
+            / TOLERANCE
+            / min(
+                pl.Series(
+                    explanation_masses.select("tolerated_integer_masses")
+                ).to_list()
+            )
+        ),
+        su_mass=seq_mass_su,
+        obs_mass=seq_mass_obs,
+        modification_rate=settings.modification_rate,
+    )
+
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
         tolerance=threshold,
         precision=TOLERANCE,
-        modification_rate=settings.modification_rate,
-        seq_mass_su=seq_mass_su,
-        seq_mass_obs=seq_mass_obs,
+        seq=seq_info,
         reduced_table=reduce_table,
         reduced_set=reduce_set,
     )

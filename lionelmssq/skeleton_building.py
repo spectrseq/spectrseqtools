@@ -23,14 +23,14 @@ class SkeletonBuilder:
         # Build skeleton sequence from 5'-end
         start_skeleton, start_fragments = self._predict_skeleton(
             fragments=fragments.filter(pl.col("breakage").str.contains("START")),
-            skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
+            skeleton_seq=[set() for _ in range(self.dp_table.seq.max_len)],
         )
         print("Skeleton sequence start = ", start_skeleton)
 
         # Build skeleton sequence from 3'-end
         end_skeleton, end_fragments = self._predict_skeleton(
             fragments=fragments.filter(pl.col("breakage").str.contains("END")),
-            skeleton_seq=[set() for _ in range(self.dp_table.max_seq_len)],
+            skeleton_seq=[set() for _ in range(self.dp_table.seq.max_len)],
         )
         # Reverse skeleton from END fragments
         end_skeleton = end_skeleton[::-1]
@@ -298,7 +298,7 @@ class SkeletonBuilder:
                     [
                         expl
                         for expl in explanations
-                        if 0 <= p + len(expl) - 1 < self.dp_table.max_seq_len
+                        if 0 <= p + len(expl) - 1 < self.dp_table.seq.max_len
                     ],
                     len,
                 )

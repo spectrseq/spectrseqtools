@@ -47,7 +47,7 @@ def calculate_explanations(
     explanation_list = explain_mass_with_table(
         diff,
         dp_table=dp_table,
-        max_modifications=round(dp_table.modification_rate * dp_table.max_seq_len),
+        max_modifications=round(dp_table.seq.modification_rate * dp_table.seq.max_len),
         threshold=threshold,
     ).explanations
 

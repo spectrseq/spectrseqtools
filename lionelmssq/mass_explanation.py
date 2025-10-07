@@ -156,7 +156,7 @@ def explain_mass_with_table(
                 current_idx - 1,
                 max_mods_all,
                 round(
-                    dp_table.max_seq_len
+                    dp_table.seq.max_len
                     * dp_table.masses[current_idx - 1].modification_rate
                 ),
             )
@@ -197,7 +197,7 @@ def explain_mass_with_table(
             value,
             len(dp_table.masses) - 1,
             max_modifications,
-            round(dp_table.max_seq_len * dp_table.masses[-1].modification_rate),
+            round(dp_table.seq.max_len * dp_table.masses[-1].modification_rate),
         )
 
     return convert_nucleotide_masses_to_names(solutions=solutions)
@@ -230,7 +230,7 @@ def explain_mass_with_recursion(
     def dp(remaining, start, used_mods_all, used_mods_ind):
         # If too many modifications are used, return empty list
         if used_mods_all > max_modifications or used_mods_ind > round(
-            dp_table.max_seq_len * dp_table.masses[start].modification_rate
+            dp_table.seq.max_len * dp_table.masses[start].modification_rate
         ):
             return []
 

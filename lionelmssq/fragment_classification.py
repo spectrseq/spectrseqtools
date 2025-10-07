@@ -89,7 +89,7 @@ def classify_fragments(
     )
 
     # Select highest valid SU mass, i.e. the sequence mass
-    mass_cutoff = dp_table.seq_mass
+    mass_cutoff = dp_table.seq.su_mass
 
     # Filter fragments based on mass cutoff
     fragments = filter_by_sequence_mass(mass_cutoff, fragments)

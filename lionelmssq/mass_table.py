@@ -17,6 +17,14 @@ TABLE_DIR = user_cache_dir(
 
 
 @dataclass
+class SequenceInformation:
+    max_len: int
+    su_mass: float
+    obs_mass: float
+    modification_rate: float
+
+
+@dataclass
 class NucleotideMass:
     mass: int
     names: List[str]
@@ -45,10 +53,7 @@ class DynamicProgrammingTable:
     compression_per_cell: int
     precision: float
     tolerance: float
-    max_seq_len: int
-    seq_mass: float
-    seq_mass_obs: float
-    modification_rate: float
+    seq: SequenceInformation
     masses: List[NucleotideMass]
 
     def __init__(
@@ -57,17 +62,14 @@ class DynamicProgrammingTable:
         compression_rate: int,
         tolerance: float,
         precision: float,
-        seq_mass_obs: float,
-        seq_mass_su: float,
-        modification_rate: float = 0.5,
+        seq: SequenceInformation,
         reduced_table: bool = False,
         reduced_set: bool = False,
     ):
         self.compression_per_cell = compression_rate
-        self.precision = precision
         self.tolerance = tolerance
-        self.seq_mass = seq_mass_su
-        self.seq_mass_obs = seq_mass_obs
+        self.precision = precision
+        self.seq = seq
         self.masses = initialize_nucleotide_masses(nucleotide_df)
         self.table = load_dp_table(
             table_path=set_table_path(
@@ -77,15 +79,6 @@ class DynamicProgrammingTable:
             integer_masses=[mass.mass for mass in self.masses],
         )
 
-        # Set upper bound for sequence length
-        self.max_seq_len = int(seq_mass_su / precision / min(self.masses[1:]).mass)
-
-        # Set universal modification rate
-        self.set_universal_modification_rate(modification_rate)
-
-    def set_universal_modification_rate(self, modification_rate: float):
-        self.modification_rate = modification_rate
-
         # Adapt individual modification rates to universal one
         self._adapt_individual_modification_rates_by_universal_one()
 
@@ -93,8 +86,8 @@ class DynamicProgrammingTable:
         for nucleotide_mass in self.masses:
             if not nucleotide_mass.is_modification:
                 continue
-            if nucleotide_mass.modification_rate > self.modification_rate:
-                nucleotide_mass.modification_rate = self.modification_rate
+            if nucleotide_mass.modification_rate > self.seq.modification_rate:
+                nucleotide_mass.modification_rate = self.seq.modification_rate
 
     def adapt_individual_modification_rates_by_alphabet_reduction(self, alphabet):
         for nucleotide_mass in self.masses:
@@ -317,14 +310,14 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
     compression_rate = dp_table.compression_per_cell
 
     # Set maximum number of modifications
-    max_modifications = round(dp_table.modification_rate * dp_table.max_seq_len)
+    max_modifications = round(dp_table.seq.modification_rate * dp_table.seq.max_len)
 
     # Convert the target to an integer for easy operations
-    target = int(round(dp_table.seq_mass / dp_table.precision, 0))
+    target = int(round(dp_table.seq.su_mass / dp_table.precision, 0))
 
     # Convert the threshold to integer
     threshold = int(
-        np.ceil(dp_table.tolerance * dp_table.seq_mass_obs / dp_table.precision)
+        np.ceil(dp_table.tolerance * dp_table.seq.obs_mass / dp_table.precision)
     )
 
     # Initialize memorization dict
@@ -333,7 +326,7 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
     # Select default value based on desired bound
     match dir:
         case "lower":
-            default_bound = dp_table.max_seq_len
+            default_bound = dp_table.seq.max_len
         case "upper":
             default_bound = -1
         case _:
@@ -383,7 +376,7 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
                     current_idx - 1,
                     max_mods_all,
                     round(
-                        dp_table.max_seq_len
+                        dp_table.seq.max_len
                         * dp_table.masses[current_idx - 1].modification_rate
                     ),
                 )
@@ -436,7 +429,7 @@ def compute_sequence_length_bound(dp_table: DynamicProgrammingTable, dir: str) -
                 value,
                 len(dp_table.masses) - 1,
                 max_modifications,
-                round(dp_table.max_seq_len * dp_table.masses[-1].modification_rate),
+                round(dp_table.seq.max_len * dp_table.masses[-1].modification_rate),
             )
         )
 

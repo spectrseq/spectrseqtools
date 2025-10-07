@@ -4,7 +4,7 @@ import os
 import pytest
 
 from lionelmssq.cli import select_solver
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
 from lionelmssq.plotting import plot_prediction
@@ -92,15 +92,29 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
+        seq_info = SequenceInformation(
+            max_len=int(
+                seq_mass_su
+                / TOLERANCE
+                / min(
+                    pl.Series(
+                        explanation_masses.select("tolerated_integer_masses")
+                    ).to_list()
+                )
+            ),
+            su_mass=seq_mass_su,
+            obs_mass=seq_mass_obs,
+            modification_rate=0.5,
+        )
+
         dp_table = DynamicProgrammingTable(
             explanation_masses,
             reduced_table=True,
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
-            seq_mass_su=seq_mass_su,
-            seq_mass_obs=seq_mass_obs,
             tolerance=matching_threshold,
             precision=TOLERANCE,
+            seq=seq_info,
         )
 
     else:
@@ -119,16 +133,30 @@ def test_testcase(testcase):
 
         _, unique_masses, explanation_masses = initialize_nucleotide_df(reduce_set=True)
 
+        seq_info = SequenceInformation(
+            max_len=int(
+                seq_mass_su
+                / TOLERANCE
+                / min(
+                    pl.Series(
+                        explanation_masses.select("tolerated_integer_masses")
+                    ).to_list()
+                )
+            ),
+            su_mass=seq_mass_su,
+            obs_mass=seq_mass_obs,
+            modification_rate=0.5,
+        )
+
         dp_table = DynamicProgrammingTable(
             explanation_masses,
             reduced_table=False,
             reduced_set=True,
             compression_rate=COMPRESSION_RATE,
-            seq_mass_su=seq_mass_su,
-            seq_mass_obs=seq_mass_obs,
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
+            seq=seq_info,
         )
 
     fragments = classify_fragments(
