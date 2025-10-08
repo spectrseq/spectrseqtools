@@ -20,7 +20,6 @@ def classify_fragments(
     breakage_dict: dict,
     output_file_path=None,
     intensity_cutoff=0.5e6,
-    seq_mass=None,
     mass_cutoff=50000,
 ) -> pl.DataFrame:
     # If no intensity is given, set it so that all fragments pass the filter
@@ -89,19 +88,11 @@ def classify_fragments(
         .filter(pl.col("observed_mass") < mass_cutoff)
     )
 
-    if seq_mass is not None:
-        # Select highest valid SU mass, i.e. sequence mass without START_END breakage
-        mass_cutoff = (
-            seq_mass
-            - [
-                mass * dp_table.precision
-                for mass in breakage_dict
-                if "START_END" in breakage_dict[mass]
-            ][0]
-        )
+    # Select highest valid SU mass, i.e. the sequence mass
+    mass_cutoff = dp_table.seq.su_mass
 
-        # Filter fragments based on mass cutoff
-        fragments = filter_by_sequence_mass(mass_cutoff, fragments)
+    # Filter fragments based on mass cutoff
+    fragments = filter_by_sequence_mass(mass_cutoff, fragments)
 
     # Write terminal fragments to file if file name is given
     if output_file_path is not None:

@@ -11,7 +11,7 @@ from lionelmssq.masses import (
     MASSES,
     TOLERANCE,
 )
-from lionelmssq.mass_table import DynamicProgrammingTable
+from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 
 
 def get_seq_weight(seq: tuple) -> float:
@@ -53,6 +53,21 @@ MOD_RATE = 0.5
 @pytest.mark.parametrize("testcase", MASS_SEQ_DICT.items())
 @pytest.mark.parametrize("threshold", THRESHOLDS)
 def test_testcase_with_recursion(testcase, threshold):
+    seq_info = SequenceInformation(
+        max_len=int(
+            testcase[0]
+            / TOLERANCE
+            / min(
+                pl.Series(
+                    EXPLANATION_MASSES.select("tolerated_integer_masses")
+                ).to_list()
+            )
+        ),
+        su_mass=testcase[0],
+        obs_mass=testcase[0],
+        modification_rate=MOD_RATE,
+    )
+
     dp_table = DynamicProgrammingTable(
         EXPLANATION_MASSES,
         reduced_table=True,
@@ -60,12 +75,12 @@ def test_testcase_with_recursion(testcase, threshold):
         compression_rate=32,
         tolerance=threshold,
         precision=TOLERANCE,
+        seq=seq_info,
     )
 
     predicted_mass_explanations = explain_mass_with_recursion(
         testcase[0],
         dp_table=dp_table,
-        seq_len=len(testcase[1]),
         max_modifications=round(MOD_RATE * len(testcase[1])),
     ).explanations
 
@@ -85,6 +100,21 @@ COMPRESSION_RATES = [32]
 @pytest.mark.parametrize("memo", WITH_MEMO)
 @pytest.mark.parametrize("threshold", THRESHOLDS)
 def test_testcase_with_table(testcase, compression, threshold, memo):
+    seq_info = SequenceInformation(
+        max_len=int(
+            testcase[0]
+            / TOLERANCE
+            / min(
+                pl.Series(
+                    EXPLANATION_MASSES.select("tolerated_integer_masses")
+                ).to_list()
+            )
+        ),
+        su_mass=testcase[0],
+        obs_mass=testcase[0],
+        modification_rate=MOD_RATE,
+    )
+
     dp_table = DynamicProgrammingTable(
         EXPLANATION_MASSES,
         reduced_table=True,
@@ -92,12 +122,12 @@ def test_testcase_with_table(testcase, compression, threshold, memo):
         compression_rate=compression,
         tolerance=threshold,
         precision=TOLERANCE,
+        seq=seq_info,
     )
 
     predicted_mass_explanations = explain_mass_with_table(
         testcase[0],
         dp_table=dp_table,
-        seq_len=len(testcase[1]),
         max_modifications=round(MOD_RATE * len(testcase[1])),
         with_memo=memo,
     ).explanations

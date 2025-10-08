@@ -92,7 +92,6 @@ def is_valid_mass(
 def explain_mass_with_table(
     mass: float,
     dp_table: DynamicProgrammingTable,
-    seq_len: int,
     max_modifications=np.inf,
     compression_rate=None,
     threshold=None,
@@ -156,7 +155,10 @@ def explain_mass_with_table(
                 total_mass,
                 current_idx - 1,
                 max_mods_all,
-                round(seq_len * dp_table.masses[current_idx - 1].modification_rate),
+                round(
+                    dp_table.seq.max_len
+                    * dp_table.masses[current_idx - 1].modification_rate
+                ),
             )
 
         # Backtrack to the next left-side column if possible
@@ -195,7 +197,7 @@ def explain_mass_with_table(
             value,
             len(dp_table.masses) - 1,
             max_modifications,
-            round(seq_len * dp_table.masses[-1].modification_rate),
+            round(dp_table.seq.max_len * dp_table.masses[-1].modification_rate),
         )
 
     return convert_nucleotide_masses_to_names(solutions=solutions)
@@ -204,7 +206,6 @@ def explain_mass_with_table(
 def explain_mass_with_recursion(
     mass: float,
     dp_table: DynamicProgrammingTable,
-    seq_len: int,
     max_modifications=np.inf,
     threshold=None,
 ) -> MassExplanations:
@@ -229,7 +230,7 @@ def explain_mass_with_recursion(
     def dp(remaining, start, used_mods_all, used_mods_ind):
         # If too many modifications are used, return empty list
         if used_mods_all > max_modifications or used_mods_ind > round(
-            seq_len * dp_table.masses[start].modification_rate
+            dp_table.seq.max_len * dp_table.masses[start].modification_rate
         ):
             return []
 
