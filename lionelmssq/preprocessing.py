@@ -1,6 +1,8 @@
 import ms_deisotope as ms_ditp
 import yaml
+import polars as pl
 from clr_loader import get_mono
+from typing import Tuple
 
 from lionelmssq.deconvolution import deconvolute_scans
 from lionelmssq.singleton_matching import match_singletons
@@ -11,19 +13,50 @@ PPM_TOLERANCE = 10
 
 
 def oliglow_run(
-    filepath, deconv_params, meta_params, save_files=True, identify_singletons=True
-):
+    file_path: str,
+    deconvolution_params: dict,
+    meta_params: dict,
+    save_files: bool = True,
+    identify_singletons: bool = True,
+) -> Tuple[pl.DataFrame, pl.Dataframe, dict]:
     """
-    Main pipeline for deconvoluting MS2 scans and generating the metafile required for running lionelmssq.
+    Deconvolute MS2 scans and identify singletons.
+
+    Main pipeline for deconvoluting MS2 scans and generating the metafile
+    required for running LionelMSSQ.
     Generates list of candidate nucleotides from singletons.
-    Outputs a .tsv of the monoisotopic masses and a .YAML of the metadata in the working file directory.
+    Outputs a TSV of the monoisotopic masses and a YAML of the metadata in
+    the working file directory.
+
+    Parameters
+    ----------
+    file_path : str
+        Path of RAW file from ThermoFisher.
+    deconvolution_params : dict
+        Dictionary with parameters for deconvolution.
+    meta_params : dict
+            Dictionary with meta parameters.
+    save_files : bool
+        Flag whether to data to save file.
+    identify_singletons : bool
+        Flag whether to identify singletons from data.
+
+    Returns
+    -------
+    df_deconvolved_agg : pl.DataFrame
+        Dataframe containing deconvoluted fragments.
+    df_singletons : pl.DataFrame
+        Dataframe containing singleton data.
+    meta : dict
+        Dictionary with updated meta parameters.
+
     """
     raw_file_read = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
-        filepath, _load_metadata=True
+        file_path, _load_metadata=True
     )
 
     df_deconvolved_agg, df_mz, sequence_mass = deconvolute_scans(
-        raw_file_read, deconv_params, extract_mz=True
+        raw_file_read, deconvolution_params, extract_mz=True
     )
 
     if identify_singletons:
@@ -32,7 +65,7 @@ def oliglow_run(
         df_singletons = None
 
     # Assumes that the file path has the format `path/to/file/sample_name.RAW`
-    sample_name = filepath.split("/")[-1].split(".")[0]
+    sample_name = file_path.split("/")[-1].split(".")[0]
 
     meta = create_metafile(
         sample_name,
@@ -50,18 +83,18 @@ def oliglow_run(
         df_deconvolved_agg.write_csv(f"{sample_name}.tsv", separator="\t")
         if identify_singletons:
             df_singletons.write_csv(f"{sample_name}_singletons.tsv", separator="\t")
-    else:
-        return df_deconvolved_agg, df_singletons, meta
+
+    return df_deconvolved_agg, df_singletons, meta
 
 
 def create_metafile(
-    sample_name,
-    intensity_cutoff,
-    label_mass_3T,
-    label_mass_5T,
-    sequence_mass,
-    true_sequence=None,
-):
+    sample_name: str,
+    intensity_cutoff: float,
+    start_tag: float,
+    end_tag: float,
+    sequence_mass: float,
+    true_sequence: bool = None,
+) -> dict:
     """
     Create the metafile required for running lionelmssq. Contains experimental information from the sample.
 
@@ -70,30 +103,28 @@ def create_metafile(
     sample_name : str
         Sample ID.
     intensity_cutoff : float
-        Minimum intensity considered in lionelmssq.
-    label_mass_3T : float
-        Mass of the 3' label of the sample.
-    label_mass_5T : float
-        Mass of the 5' label of the sample.
-    sqeuence_mass : float
-        Estimated intact sequence mass, obtained from `deconvolute_scans`.
+        Minimum intensity considered in LionelMSSQ.
+    start_tag : float
+        Mass of the 5'-label of the sample.
+    end_tag : float
+        Mass of the 3'-label of the sample.
+    sequence_mass : float
+        Estimated intact sequence mass.
     true_sequence : str, optional
         True sequence of the sample, if available.
-    file_prefix : str, optional
-        Output filename of the metafile.
 
     Returns
     -------
     meta : dict
-        Dictionary containing metadata, to be saved as a .YAML file.
+        Dictionary containing metadata, to be saved as a YAML file.
 
     """
 
     meta = {
         "identity": str(sample_name),
         "intensity_cutoff": float(intensity_cutoff),
-        "label_mass_3T": float(label_mass_3T),
-        "label_mass_5T": float(label_mass_5T),
+        "label_mass_3T": float(end_tag),
+        "label_mass_5T": float(start_tag),
         "sequence_mass": float(sequence_mass),
         "true_sequence": str(true_sequence),
     }
