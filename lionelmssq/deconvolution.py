@@ -116,14 +116,14 @@ def create_averageine(with_backbone=True, with_thiophosphate_backbone=False):
         return average_nucleoside_rna
 
 
-def deconvolute_scans(raw_file_read, parameters, extract_mz=True):
+def deconvolute_scans(file_path, parameters, extract_mz=True):
     """
     Deconvolute and deisotope MS2 scans from Thermo Fisher .RAW files and output a Polars dataframe containing deisotoped peaks and the estimated intact sequence mass.
 
     Parameters
     ----------
-    raw_file_read : ms_deisotope.data_source.thermo_raw_net.ThermoRawLoader
-        Thermo RAW iterator.
+    file_path : str
+        Path of RAW file from ThermoFisher.
     parameters : dict
         Dictionary of deisotoping parameters.
     extract_mz : bool, optional
@@ -131,16 +131,21 @@ def deconvolute_scans(raw_file_read, parameters, extract_mz=True):
 
     Returns
     -------
-    df_deconvolved : polars dataframe
+    df_deconvoluted : polars dataframe
         Dataframe containing monoisotopic masses and intensities.
     df_mz : polars dataframe
         Dataframe containing mass-to-charge ratios and intensities.
     sequence_mass : float
         Estimated intact sequence mass
     """
+    # Read data from raw file
+    raw_file_read = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
+        file_path, _load_metadata=True
+    )
 
     # Load parameter defaults if not found in `parameters` dict
     params = DeconvolutionParameters(parameters)
+
     # Calculate goodness-of-fit criterion for envelope scoring
     scorer = ms_ditp.MSDeconVFitter(params.min_score, params.mass_error_tol)
 

@@ -1,4 +1,3 @@
-import ms_deisotope as ms_ditp
 import yaml
 import polars as pl
 from clr_loader import get_mono
@@ -51,12 +50,9 @@ def oliglow_run(
         Dictionary with updated meta parameters.
 
     """
-    raw_file_read = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
-        file_path, _load_metadata=True
-    )
-
-    df_deconvolved_agg, df_mz, sequence_mass = deconvolute_scans(
-        raw_file_read, deconvolution_params, extract_mz=True
+    # Deconvolute raw data from file
+    df_deconvoluted_agg, df_mz, sequence_mass = deconvolute_scans(
+        file_path, deconvolution_params, extract_mz=True
     )
 
     if identify_singletons:
@@ -80,11 +76,11 @@ def oliglow_run(
         with open(f"{sample_name}.meta.yaml", "w") as file:
             yaml.dump(meta, file)
 
-        df_deconvolved_agg.write_csv(f"{sample_name}.tsv", separator="\t")
+        df_deconvoluted_agg.write_csv(f"{sample_name}.tsv", separator="\t")
         if identify_singletons:
             df_singletons.write_csv(f"{sample_name}_singletons.tsv", separator="\t")
 
-    return df_deconvolved_agg, df_singletons, meta
+    return df_deconvoluted_agg, df_singletons, meta
 
 
 def create_metafile(
