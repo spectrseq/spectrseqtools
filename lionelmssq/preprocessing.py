@@ -49,59 +49,9 @@ def preprocess(
     # Identify singletons if desired
     df_singletons = match_singletons(df_mz=df_mz) if identify_singletons else None
 
-    # Update meta parameters
-    meta = create_metafile(
-        sample_name=file_path.stem,
-        intensity_cutoff=meta_params["intensity_cutoff"],
-        start_tag=meta_params["label_mass_5T"],
-        end_tag=meta_params["label_mass_3T"],
-        sequence_mass=meta_params.get("sequence_mass", sequence_mass),
-        true_sequence=meta_params.get("true_sequence", None),
-    )
+    # Update meta parameters (if needed)
+    meta_params.setdefault("identity", file_path.stem)
+    meta_params.setdefault("sequence_mass", sequence_mass)
+    meta_params.setdefault("true_sequence", None)
 
-    return df_deconvoluted, df_singletons, meta
-
-
-def create_metafile(
-    sample_name: str,
-    intensity_cutoff: float,
-    start_tag: float,
-    end_tag: float,
-    sequence_mass: float,
-    true_sequence: bool = None,
-) -> dict:
-    """
-    Create the metafile required for running lionelmssq. Contains experimental information from the sample.
-
-    Parameters
-    ----------
-    sample_name : str
-        Sample ID.
-    intensity_cutoff : float
-        Minimum intensity considered in LionelMSSQ.
-    start_tag : float
-        Mass of the 5'-label of the sample.
-    end_tag : float
-        Mass of the 3'-label of the sample.
-    sequence_mass : float
-        Estimated intact sequence mass.
-    true_sequence : str, optional
-        True sequence of the sample, if available.
-
-    Returns
-    -------
-    meta : dict
-        Dictionary containing metadata, to be saved as a YAML file.
-
-    """
-
-    meta = {
-        "identity": str(sample_name),
-        "intensity_cutoff": float(intensity_cutoff),
-        "label_mass_3T": float(end_tag),
-        "label_mass_5T": float(start_tag),
-        "sequence_mass": float(sequence_mass),
-        "true_sequence": str(true_sequence),
-    }
-
-    return meta
+    return df_deconvoluted, df_singletons, meta_params
