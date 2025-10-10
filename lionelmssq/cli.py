@@ -15,7 +15,7 @@ from lionelmssq.masses import (
     initialize_nucleotide_df,
 )
 from lionelmssq.prediction import Predictor
-from lionelmssq.preprocessing import oliglow_run
+from lionelmssq.preprocessing import preprocess
 
 
 class Settings(Tap):
@@ -53,7 +53,7 @@ def main():
     if os.path.isfile(file_name):
         print("Preprocessing raw data...")
         # Preprocess raw data
-        fragments, singletons, meta = oliglow_run(
+        fragments, singletons, meta = preprocess(
             file_path=file_name,
             deconvolution_params={},
             meta_params=meta,

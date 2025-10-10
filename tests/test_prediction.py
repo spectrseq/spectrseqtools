@@ -10,7 +10,7 @@ from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
 from lionelmssq.plotting import plot_prediction
 from lionelmssq.fragment_classification import classify_fragments
-from lionelmssq.preprocessing import oliglow_run
+from lionelmssq.preprocessing import preprocess
 from lionelmssq.masses import (
     COMPRESSION_RATE,
     TOLERANCE,
@@ -121,8 +121,8 @@ def test_testcase(testcase):
         file_name = base_path / "fragments.raw"
         if os.path.isfile(file_name):
             # Preprocess raw data
-            fragments, singletons, meta = oliglow_run(
-                file_path=str(file_name),
+            fragments, singletons, meta = preprocess(
+                file_path=file_name,
                 deconvolution_params={},
                 meta_params=meta,
             )

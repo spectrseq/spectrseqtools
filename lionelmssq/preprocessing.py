@@ -4,10 +4,8 @@ from typing import Tuple
 from lionelmssq.deconvolution import deconvolute_scans
 from lionelmssq.singleton_matching import match_singletons
 
-PPM_TOLERANCE = 10
 
-
-def oliglow_run(
+def preprocess(
     file_path: str,
     deconvolution_params: dict,
     meta_params: dict,
@@ -17,10 +15,8 @@ def oliglow_run(
     Deconvolute MS2 scans and identify singletons.
 
     Main pipeline for deconvoluting MS2 scans and generating the metafile
-    required for running LionelMSSQ.
-    Generates list of candidate nucleotides from singletons.
-    Outputs a TSV of the monoisotopic masses and a YAML of the metadata in
-    the working file directory.
+    required for running LionelMSSQ as well as a list of candidate nucleotides
+    from singletons (if desired).
 
     Parameters
     ----------
@@ -29,13 +25,13 @@ def oliglow_run(
     deconvolution_params : dict
         Dictionary with parameters for deconvolution.
     meta_params : dict
-            Dictionary with meta parameters.
+        Dictionary with meta parameters.
     identify_singletons : bool
         Flag whether to identify singletons from data.
 
     Returns
     -------
-    df_deconvoluted_agg : pl.DataFrame
+    df_deconvoluted : pl.DataFrame
         Dataframe containing deconvoluted fragments.
     df_singletons : pl.DataFrame
         Dataframe containing singleton data.
@@ -44,21 +40,18 @@ def oliglow_run(
 
     """
     # Deconvolute raw data from file
-    df_deconvoluted_agg, df_mz, sequence_mass = deconvolute_scans(
-        file_path, deconvolution_params, extract_mz=True
+    df_deconvoluted, df_mz, sequence_mass = deconvolute_scans(
+        file_path=str(file_path),
+        parameters=deconvolution_params,
+        extract_mz=True,
     )
-    print(df_deconvoluted_agg)
 
-    if identify_singletons:
-        df_singletons = match_singletons(df_mz)
-    else:
-        df_singletons = None
+    # Identify singletons if desired
+    df_singletons = match_singletons(df_mz=df_mz) if identify_singletons else None
 
-    # Assumes that the file path has the format `path/to/file/sample_name.RAW`
-    sample_name = file_path.split("/")[-1].split(".")[0]
-
+    # Update meta parameters
     meta = create_metafile(
-        sample_name=sample_name,
+        sample_name=file_path.stem,
         intensity_cutoff=meta_params["intensity_cutoff"],
         start_tag=meta_params["label_mass_5T"],
         end_tag=meta_params["label_mass_3T"],
@@ -66,7 +59,7 @@ def oliglow_run(
         true_sequence=meta_params.get("true_sequence", None),
     )
 
-    return df_deconvoluted_agg, df_singletons, meta
+    return df_deconvoluted, df_singletons, meta
 
 
 def create_metafile(
