@@ -1,6 +1,7 @@
 import importlib.resources
 import os
-
+import polars as pl
+import yaml
 import pytest
 
 from lionelmssq.cli import select_solver
@@ -9,10 +10,7 @@ from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
 from lionelmssq.plotting import plot_prediction
 from lionelmssq.fragment_classification import classify_fragments
-
-import polars as pl
-import yaml
-
+from lionelmssq.preprocessing import oliglow_run
 from lionelmssq.masses import (
     COMPRESSION_RATE,
     TOLERANCE,
@@ -120,7 +118,21 @@ def test_testcase(testcase):
     else:
         simulation = False
 
-        fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
+        file_name = base_path / "fragments.raw"
+        if os.path.isfile(file_name):
+            # Preprocess raw data
+            fragments, singletons, meta = oliglow_run(
+                file_path=str(file_name),
+                deconvolution_params={},
+                meta_params=meta,
+                save_files=False,
+            )
+        else:
+            # Read already preprocessed fragments
+            fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
+            singletons = None
+
+        print(singletons)
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_MATCHING_THRESHOLD(

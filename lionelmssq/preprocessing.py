@@ -1,12 +1,9 @@
 import yaml
 import polars as pl
-from clr_loader import get_mono
 from typing import Tuple
 
 from lionelmssq.deconvolution import deconvolute_scans
 from lionelmssq.singleton_matching import match_singletons
-
-rt = get_mono()
 
 PPM_TOLERANCE = 10
 
@@ -17,7 +14,7 @@ def oliglow_run(
     meta_params: dict,
     save_files: bool = True,
     identify_singletons: bool = True,
-) -> Tuple[pl.DataFrame, pl.Dataframe, dict]:
+) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
     Deconvolute MS2 scans and identify singletons.
 
@@ -42,7 +39,7 @@ def oliglow_run(
 
     Returns
     -------
-    df_deconvolved_agg : pl.DataFrame
+    df_deconvoluted_agg : pl.DataFrame
         Dataframe containing deconvoluted fragments.
     df_singletons : pl.DataFrame
         Dataframe containing singleton data.
@@ -54,6 +51,7 @@ def oliglow_run(
     df_deconvoluted_agg, df_mz, sequence_mass = deconvolute_scans(
         file_path, deconvolution_params, extract_mz=True
     )
+    print(df_deconvoluted_agg)
 
     if identify_singletons:
         df_singletons = match_singletons(df_mz)
@@ -64,12 +62,12 @@ def oliglow_run(
     sample_name = file_path.split("/")[-1].split(".")[0]
 
     meta = create_metafile(
-        sample_name,
-        meta_params["intensity_cutoff"],
-        meta_params["label_mass_3T"],
-        meta_params["label_mass_5T"],
-        meta_params.get("sequence_mass", sequence_mass),
-        meta_params.get("true_sequence", None),
+        sample_name=sample_name,
+        intensity_cutoff=meta_params["intensity_cutoff"],
+        start_tag=meta_params["label_mass_5T"],
+        end_tag=meta_params["label_mass_3T"],
+        sequence_mass=meta_params.get("sequence_mass", sequence_mass),
+        true_sequence=meta_params.get("true_sequence", None),
     )
 
     if save_files:
