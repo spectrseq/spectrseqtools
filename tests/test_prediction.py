@@ -125,8 +125,15 @@ def test_testcase(testcase):
                 file_path=str(file_name),
                 deconvolution_params={},
                 meta_params=meta,
-                save_files=False,
             )
+
+            # Save preprocessed fragments
+            fragments.write_csv(
+                base_path / "fragments.preprocessed.tsv", separator="\t"
+            )
+
+            # Save singletons detected from raw data
+            singletons.write_csv(base_path / "fragments.singletons.tsv", separator="\t")
         else:
             # Read already preprocessed fragments
             fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")

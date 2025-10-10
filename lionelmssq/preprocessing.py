@@ -1,4 +1,3 @@
-import yaml
 import polars as pl
 from typing import Tuple
 
@@ -12,7 +11,6 @@ def oliglow_run(
     file_path: str,
     deconvolution_params: dict,
     meta_params: dict,
-    save_files: bool = True,
     identify_singletons: bool = True,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
@@ -32,8 +30,6 @@ def oliglow_run(
         Dictionary with parameters for deconvolution.
     meta_params : dict
             Dictionary with meta parameters.
-    save_files : bool
-        Flag whether to data to save file.
     identify_singletons : bool
         Flag whether to identify singletons from data.
 
@@ -69,14 +65,6 @@ def oliglow_run(
         sequence_mass=meta_params.get("sequence_mass", sequence_mass),
         true_sequence=meta_params.get("true_sequence", None),
     )
-
-    if save_files:
-        with open(f"{sample_name}.meta.yaml", "w") as file:
-            yaml.dump(meta, file)
-
-        df_deconvoluted_agg.write_csv(f"{sample_name}.tsv", separator="\t")
-        if identify_singletons:
-            df_singletons.write_csv(f"{sample_name}_singletons.tsv", separator="\t")
 
     return df_deconvoluted_agg, df_singletons, meta
 

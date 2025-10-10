@@ -58,6 +58,20 @@ def main():
             deconvolution_params={},
             meta_params=meta,
         )
+        # Save preprocessed fragments
+        fragments.write_csv(
+            fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
+        )
+
+        # Save singletons detected from raw data
+        singletons.write_csv(
+            fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
+        )
+
+        # Save updated meta data
+        with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
+            yaml.dump(meta, f)
+
         print("Preprocessing completed!\n")
     else:
         print("Raw file not found. Proceeding with preprocessed data.")
@@ -143,10 +157,10 @@ def main():
         solver_params=solver_params,
     )
 
-    # save fragment predictions
+    # Save fragment predictions
     prediction.fragments.write_csv(settings.fragment_predictions, separator="\t")
 
-    # save predicted sequence
+    # Save predicted sequence
     with open(settings.sequence_prediction, "w") as f:
         print(f">{settings.sequence_name}", file=f)
         print("".join(prediction.sequence), file=f)
