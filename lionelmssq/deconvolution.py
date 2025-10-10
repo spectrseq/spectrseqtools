@@ -202,10 +202,14 @@ def deconvolute_scans(file_path, parameters, extract_mz=True):
     )
 
     # Aggregate the final dataframe by `ppm_group` while taking the maximum `neutral_mass` and sum of the `intensities` for each group
-    df_deconvolved_agg = df_deconvolved.group_by("ppm_group").agg(
-        neutral_mass=pl.col("neutral_mass").max(),
-        intensity=pl.col("intensity").sum(),
-        is_precursor_deisotoped=pl.col("is_precursor_deisotoped").max(),
+    df_deconvolved_agg = (
+        df_deconvolved.group_by("ppm_group")
+        .agg(
+            neutral_mass=pl.col("neutral_mass").max(),
+            intensity=pl.col("intensity").sum(),
+            is_precursor_deisotoped=pl.col("is_precursor_deisotoped").max(),
+        )
+        .sort("neutral_mass")
     )
 
     # The aggregated `neutral_mass` with (1) a deisotoped precursor and (2) has the largest aggregated `intensity` is the estimated intact sequence mass
