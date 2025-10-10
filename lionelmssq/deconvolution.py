@@ -27,7 +27,7 @@ class DeconvolutionParameters:
         # We will need to find this dependant on the intensity of the scans!
 
         self.truncate_after = parameters.get(
-            "truncate_after", 0.8
+            "truncate_after", 0.9
         )  # For MS1 and 0.8 for MS2 as per the recommendation of the ms_ditp author!
         # See the discussion in ms_isotope docs
         # SENSITIVE TO THIS PARAMETER! EXTREMELY SENSETIVE! Reduce this if high mass ions are missing!
