@@ -43,16 +43,20 @@ class DeconvolutionParameters:
         self.scale_method = parameters.get("scale_method", "sum")
 
 
-# Defines the averagine for RNA with and without backbone
-def create_averagine(with_backbone=True, with_thiophosphate_backbone=False):
+def create_averagine(backbone: str):
     """
-    Calculate the average elemental composition of RNA nucleosides, optionally including the backbone.
-    Args:
-        with_backbone (bool): If True, include the phosphate group in the calculation. Defaults to True.
-    Returns:
-        dict: A dictionary representing the average elemental composition of RNA nucleosides.
-              The keys are the elements ("C", "H", "N", "O", "P") and the values are the average counts of each element.
-              If with_backbone is True, the composition includes the phosphate group.
+    Calculate the average elemental composition of RNA.
+
+    Parameters
+    ----------
+    backbone : ["no_backbone", "phosphate", "thiophosphate"]
+        Backbone considered for the composition.
+
+    Returns
+    -------
+    averagine_composition : dict
+        Dictionary containing average elemental composition.
+
     """
     # Initialize element compositions for unmodified bases
     adenosine = {"C": 10, "H": 13, "N": 5, "O": 4}
@@ -60,15 +64,9 @@ def create_averagine(with_backbone=True, with_thiophosphate_backbone=False):
     guanosine = {"C": 10, "H": 13, "N": 5, "O": 5}
     uridine = {"C": 9, "H": 12, "N": 2, "O": 6}
 
-    base_compositions = [adenosine, cytidine, guanosine, uridine]
-
-    # Determine considered elements based on backbone
-    if with_thiophosphate_backbone:
-        elements = ["C", "H", "N", "O", "P", "S"]
-    else:
-        elements = ["C", "H", "N", "O", "P"]
-
     # Determine average composition based on all considered bases
+    base_compositions = [adenosine, cytidine, guanosine, uridine]
+    elements = ["C", "H", "N", "O", "P", "S"]
     average_composition = {}
     for element in elements:
         for base in base_compositions:
@@ -78,19 +76,24 @@ def create_averagine(with_backbone=True, with_thiophosphate_backbone=False):
         ) / len(base_compositions)
 
     # Add backbone elements (if needed)
-    if with_backbone:
-        # Add 1 phosphorus and 2 oxygen for the phosphate group
-        average_composition["O"] += 2
-        average_composition["P"] += 1
-        return average_composition
-    elif with_thiophosphate_backbone:
-        # Add 1 phosphorus, 1 sulfur, and 1 oxygen for the phosphate group
-        average_composition["O"] += 1
-        average_composition["S"] += 1
-        average_composition["P"] += 1
-        return average_composition
-    else:
-        return average_composition
+    match backbone:
+        case "no_backbone":
+            pass
+        case "phosphate":
+            # Add 1 phosphorus and 2 oxygen for the phosphate group
+            average_composition["O"] += 2
+            average_composition["P"] += 1
+        case "thiophosphate":
+            # Add 1 phosphorus, 1 sulfur, and 1 oxygen for the phosphate group
+            average_composition["O"] += 1
+            average_composition["S"] += 1
+            average_composition["P"] += 1
+        case _:
+            raise NotImplementedError(
+                f"Support for '{backbone}' is currently not given."
+            )
+
+    return average_composition
 
 
 def deconvolute_scans(file_path, parameters, extract_mz=True):
