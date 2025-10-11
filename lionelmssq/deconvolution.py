@@ -1,3 +1,4 @@
+import importlib.resources
 import ms_deisotope as ms_ditp
 import polars as pl
 import tqdm as tqdm
@@ -58,19 +59,23 @@ def create_averagine(backbone: str):
         Dictionary containing average elemental composition.
 
     """
-    # Initialize element compositions for unmodified bases
-    adenosine = {"C": 10, "H": 13, "N": 5, "O": 4}
-    cytidine = {"C": 9, "H": 13, "N": 3, "O": 5}
-    guanosine = {"C": 10, "H": 13, "N": 5, "O": 5}
-    uridine = {"C": 9, "H": 12, "N": 2, "O": 6}
+    # Build dict with elemental compositions from file
+    bases = pl.read_csv(
+        importlib.resources.files(__package__) / "assets" / "elemental_composition.tsv",
+        separator="\t",
+    )
+    base_compositions = [
+        {
+            col: row[bases.get_column_index(col)]
+            for col in bases.columns
+            if col != "base"
+        }
+        for row in bases.iter_rows()
+    ]
 
-    # Determine average composition based on all considered bases
-    base_compositions = [adenosine, cytidine, guanosine, uridine]
-    elements = ["C", "H", "N", "O", "P", "S"]
+    # Calculate average elemental composition
     average_composition = {}
-    for element in elements:
-        for base in base_compositions:
-            base.setdefault(element, 0)
+    for element in base_compositions[0].keys():
         average_composition[element] = sum(
             [float(base[element]) for base in base_compositions]
         ) / len(base_compositions)
