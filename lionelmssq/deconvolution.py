@@ -17,7 +17,8 @@ class DeconvolutionParameters:
         )
         # The minimum score between the theo and exp spectra using MSDeconVFitter which is accepted!
         # TODO: Take care of this score, there should be way to estimate this score!
-        # Or use multiple passes, if the score is too large, i.e. the number of peaks after desiotoping are less than \alpha (num peaks), increase this value!
+        # Or use multiple passes, if the score is too large, i.e. the number
+        # of peaks after deisotoping are less than \alpha (num peaks), increase this value!
         self.min_score = parameters.get("min_score", 150.0)
         # The Absolute error tolerance between the theoretical m/z and the exp m/z which is accepted!
         # perhaps this should be < 1./max(charge) for a reasonable value.
@@ -53,51 +54,43 @@ def create_averagine(with_backbone=True, with_thiophosphate_backbone=False):
               The keys are the elements ("C", "H", "N", "O", "P") and the values are the average counts of each element.
               If with_backbone is True, the composition includes the phosphate group.
     """
+    # Initialize element compositions for unmodified bases
+    adenosine = {"C": 10, "H": 13, "N": 5, "O": 4}
+    cytidine = {"C": 9, "H": 13, "N": 3, "O": 5}
+    guanosine = {"C": 10, "H": 13, "N": 5, "O": 5}
+    uridine = {"C": 9, "H": 12, "N": 2, "O": 6}
 
+    base_compositions = [adenosine, cytidine, guanosine, uridine]
+
+    # Determine considered elements based on backbone
     if with_thiophosphate_backbone:
-        # Nucleosides:
-        adenosine = {"C": 10, "H": 13, "N": 5, "O": 4, "P": 0, "S": 0}
-        cytidine = {"C": 9, "H": 13, "N": 3, "O": 5, "P": 0, "S": 0}
-        guanosine = {"C": 10, "H": 13, "N": 5, "O": 5, "P": 0, "S": 0}
-        uridine = {"C": 9, "H": 12, "N": 2, "O": 6, "P": 0, "S": 0}
-
         elements = ["C", "H", "N", "O", "P", "S"]
-
     else:
-        # Nucleosides:
-        adenosine = {"C": 10, "H": 13, "N": 5, "O": 4, "P": 0}
-        cytidine = {"C": 9, "H": 13, "N": 3, "O": 5, "P": 0}
-        guanosine = {"C": 10, "H": 13, "N": 5, "O": 5, "P": 0}
-        uridine = {"C": 9, "H": 12, "N": 2, "O": 6, "P": 0}
-
         elements = ["C", "H", "N", "O", "P"]
 
-    nucleosides_composition = [adenosine, cytidine, guanosine, uridine]
+    # Determine average composition based on all considered bases
+    average_composition = {}
+    for element in elements:
+        for base in base_compositions:
+            base.setdefault(element, 0)
+        average_composition[element] = sum(
+            [float(base[element]) for base in base_compositions]
+        ) / len(base_compositions)
 
-    average_nucleoside_rna = {key: 0.0 for key in elements}
-
-    for e in elements:
-        average_nucleoside_rna[e] = sum(
-            [float(nucleosides[e]) for nucleosides in nucleosides_composition]
-        ) / len(nucleosides_composition)
-
+    # Add backbone elements (if needed)
     if with_backbone:
         # Add 1 phosphorus and 2 oxygen for the phosphate group
-        averagine_rna_with_backbone = average_nucleoside_rna.copy()
-        averagine_rna_with_backbone["O"] += 2
-        averagine_rna_with_backbone["P"] += 1
-        return averagine_rna_with_backbone
-
+        average_composition["O"] += 2
+        average_composition["P"] += 1
+        return average_composition
     elif with_thiophosphate_backbone:
         # Add 1 phosphorus, 1 sulfur, and 1 oxygen for the phosphate group
-        averagine_rna_with_thiophosphate_backbone = average_nucleoside_rna.copy()
-        averagine_rna_with_thiophosphate_backbone["O"] += 1
-        averagine_rna_with_thiophosphate_backbone["S"] += 1
-        averagine_rna_with_thiophosphate_backbone["P"] += 1
-        return averagine_rna_with_thiophosphate_backbone
-
+        average_composition["O"] += 1
+        average_composition["S"] += 1
+        average_composition["P"] += 1
+        return average_composition
     else:
-        return average_nucleoside_rna
+        return average_composition
 
 
 def deconvolute_scans(file_path, parameters, extract_mz=True):
