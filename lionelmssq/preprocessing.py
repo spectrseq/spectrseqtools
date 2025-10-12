@@ -31,23 +31,24 @@ def preprocess(
 
     Returns
     -------
-    df_deconvoluted : pl.DataFrame
+    df_deconvoluted : polars.DataFrame
         Dataframe containing deconvoluted fragments.
-    df_singletons : pl.DataFrame
+    df_singletons : polars.DataFrame
         Dataframe containing singleton data.
-    meta : dict
+    meta_params : dict
         Dictionary with updated meta parameters.
 
     """
     # Deconvolute raw data from file
-    df_deconvoluted, df_mz = deconvolute_scans(
+    df_deconvoluted = deconvolute_scans(
         file_path=str(file_path),
         params=deconvolution_params,
-        extract_mz=True,
     )
 
-    # Identify singletons if desired
-    df_singletons = match_singletons(df_mz=df_mz) if identify_singletons else None
+    # Identify singletons (if desired)
+    df_singletons = (
+        match_singletons(file_path=str(file_path)) if identify_singletons else None
+    )
 
     # Update meta parameters (if needed)
     meta_params.setdefault("identity", file_path.stem)
@@ -66,7 +67,7 @@ def select_sequence_mass(df_deconvoluted: pl.DataFrame) -> float:
 
     Parameters
     ----------
-    df_deconvoluted : pl.DataFrame
+    df_deconvoluted : polars.DataFrame
         Dataframe containing deconvoluted fragments.
 
     Returns

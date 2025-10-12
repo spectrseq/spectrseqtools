@@ -1,8 +1,13 @@
+import ms_deisotope as ms_ditp
 import re
+
+from clr_loader import get_mono
 from typing import List
 
 from lionelmssq.mass_explanation import explain_mass_with_table
 from lionelmssq.mass_table import DynamicProgrammingTable
+
+rt = get_mono()
 
 ERROR_METHOD = "l2_norm"
 _NUCLEOSIDE_RE = re.compile(r"\d*[ACGU]")
@@ -58,3 +63,31 @@ def calculate_explanations(
     # Return all found explanations
     explanation_list = list(explanation_list)
     return [Explanation(*explanation_list[i]) for i in range(len(explanation_list))]
+
+
+def initialize_raw_file_iterator(
+    file_path: str,
+) -> ms_ditp.data_source.thermo_raw_net.ThermoRawLoader:
+    """
+    Initialize iterator over scans in ThermoFisher RAW file format.
+
+    Parameters
+    ----------
+    file_path : str
+        Path of RAW file from ThermoFisher.
+
+    Returns
+    -------
+    raw_file : ms_deisotope.data_source.thermo_raw_net.ThermoRawLoader
+        Iterator over scans from RAW file.
+
+    """
+    # Read data from file
+    raw_file = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
+        file_path, _load_metadata=True
+    )
+
+    # Initialize an iterator while ungrouping MS1 from MS2 scans
+    raw_file.make_iterator(grouped=False)
+
+    return raw_file

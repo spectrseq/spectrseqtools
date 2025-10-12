@@ -1,13 +1,63 @@
 import polars as pl
 import tqdm as tqdm
-from lionelmssq.masses import ELEMENT_MASSES, PHOSPHATE_LINK_MASS, MASSES
-from clr_loader import get_mono
 from dbscan1d.core import DBSCAN1D
 from sklearn.metrics import silhouette_score
 
-rt = get_mono()
+from lionelmssq.common import initialize_raw_file_iterator
+from lionelmssq.masses import ELEMENT_MASSES, PHOSPHATE_LINK_MASS, MASSES
 
 PPM_TOLERANCE = 10
+
+
+def extract_mz_data(file_path: str) -> pl.DataFrame:
+    """
+    Extract m/z data in MS2 scans from ThermoFisher RAW files.
+
+    Parameters
+    ----------
+    file_path : str
+        Path of RAW file from ThermoFisher.
+
+    Returns
+    -------
+    df_mz : polars.DataFrame
+        Dataframe containing mass-to-charge ratios and intensities.
+
+    """
+    # Initialize the first scan from an iterator of the RAW file
+    raw_file_read = initialize_raw_file_iterator(file_path=file_path)
+    bunch = next(raw_file_read)
+
+    mz_list = []
+    for _ in tqdm.tqdm(
+        range(len(raw_file_read) - 1), desc="Extract m/z data from MS2 scans"
+    ):
+        # Only consider MS2 scans
+        if bunch.ms_level == 2:
+            # Centroid the scans
+            bunch.pick_peaks()
+
+            # Extract and generate dataframe of m/z for each scan (without deisotoping)
+            mz_df = generate_mz_df(bunch)
+            if mz_df is not None:
+                mz_list.append(mz_df)
+
+        # Move on to the next scan
+        bunch = next(raw_file_read)
+
+    # Generate cluster indices when m/z is within PPM_TOLERANCE of each other
+    df_mz = pl.concat(mz_list)
+    df_mz = df_mz.sort("mz").with_columns(
+        (1e6 * abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
+        .fill_null(0)
+        .fill_nan(0)
+        .gt(PPM_TOLERANCE)
+        .cum_sum()
+        .alias("ppm_group")
+    )
+
+    return df_mz
+
 
 # Calculate ion mass from monoisotopic mass of each nucleoside in the reference table
 UNIQUE_MASSES = (
@@ -99,20 +149,21 @@ def cluster_score(scantimes):
     return score
 
 
-def match_singletons(df_mz):
+def match_singletons(file_path: str) -> pl.DataFrame:
     """
-    Match observed m/z from .RAW file to theoretical m/z from reference mass table.
+    Match observed m/z from RAW file to theoretical m/z from reference mass table.
 
     Parameters
     ----------
-    df_mz : polars DataFrame
-        DataFrame containing observed/experimental m/z.
+    file_path : str
+        Path of RAW file from ThermoFisher.
 
     Returns
     -------
-    df_matches : polars dataframe
-        Dataframe containing list of candidate nucleosides obtained by matching singletons
+    df_matches : polars.DataFrame
+        Dataframe containing candidate nucleosides obtained by matching singletons.
     """
+    df_mz = extract_mz_data(file_path)
 
     # Match m/z to theoretical m/z from the reference table
     df_mz = df_mz.sort("mz").join_asof(

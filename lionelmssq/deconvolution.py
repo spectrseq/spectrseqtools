@@ -3,9 +3,8 @@ import ms_deisotope as ms_ditp
 import polars as pl
 import tqdm as tqdm
 from clr_loader import get_mono
-from typing import Tuple
 
-from lionelmssq.singleton_matching import generate_mz_df
+from lionelmssq.common import initialize_raw_file_iterator
 
 rt = get_mono()
 
@@ -30,7 +29,6 @@ def set_bunch_independent_params(params: dict) -> dict:
     ----------
     params : dict
         Dictionary containing some, not necessary all deconvolution parameters.
-
 
     Returns
     -------
@@ -129,9 +127,7 @@ def set_averagine(backbone: str) -> dict:
     return average_composition
 
 
-def deconvolute_scans(
-    file_path: str, params: dict, extract_mz: bool = True
-) -> Tuple[pl.DataFrame, pl.DataFrame]:
+def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
     """
     Deconvolute and deisotope MS2 scans from ThermoFisher RAW files and output
     a Polars dataframe containing deisotoped peaks.
@@ -142,33 +138,21 @@ def deconvolute_scans(
         Path of RAW file from ThermoFisher.
     params : dict
         Dictionary containing deconvolution parameters.
-    extract_mz : bool, optional
-        If true, extract m/z values per scan for singleton identification. The default is True.
 
     Returns
     -------
-    df_deconvoluted : pl.DataFrame
+    df_deconvoluted : polars.DataFrame
         Dataframe containing monoisotopic masses and intensities.
-    df_mz : pl.DataFrame
-        Dataframe containing mass-to-charge ratios and intensities.
 
     """
     # Load deconvolution parameter based on parameter dict
     params = DeconvolutionParameters(params)
 
-    # Read data from raw file
-    raw_file_read = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
-        file_path, _load_metadata=True
-    )
-
-    # Initialize the raw_file_read iterator while ungrouping the MS1 from the MS2 scans
-    raw_file_read.make_iterator(grouped=False)
-
-    # Initialize the first scan from the iterator
+    # Initialize the first scan from an iterator of the RAW file
+    raw_file_read = initialize_raw_file_iterator(file_path=file_path)
     bunch = next(raw_file_read)
 
     decon_list = []
-    mz_list = []
     for _ in tqdm.tqdm(range(len(raw_file_read) - 1), desc="Deisotoping MS2 scans"):
         # Only consider MS2 scans
         if bunch.ms_level == 2:
@@ -180,13 +164,6 @@ def deconvolute_scans(
 
             if decon_df is not None:
                 decon_list.append(decon_df)
-
-            # Extract and generate dataframe of m/z for each scan (without deisotoping)
-            if extract_mz:
-                mz_df = generate_mz_df(bunch)
-                if mz_df is not None:
-                    mz_list.append(mz_df)
-
         # Move on to the next scan
         bunch = next(raw_file_read)
 
@@ -220,22 +197,7 @@ def deconvolute_scans(
         .sort("neutral_mass")
     )
 
-    # Post-processing for df_mz
-    if extract_mz:
-        # Generate cluster indices when m/z is within PPM_TOLERANCE of each other
-        df_mz = pl.concat(mz_list)
-        df_mz = df_mz.sort("mz").with_columns(
-            (1e6 * abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
-            .fill_null(0)
-            .fill_nan(0)
-            .gt(PPM_TOLERANCE)
-            .cum_sum()
-            .alias("ppm_group")
-        )
-    else:
-        df_mz = None
-
-    return df_deconvoluted_agg, df_mz
+    return df_deconvoluted_agg
 
 
 def generate_decon_df(bunch, params):
