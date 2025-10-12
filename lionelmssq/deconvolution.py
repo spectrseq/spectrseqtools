@@ -3,6 +3,7 @@ import ms_deisotope as ms_ditp
 import polars as pl
 import tqdm as tqdm
 from clr_loader import get_mono
+from typing import Tuple
 
 from lionelmssq.singleton_matching import generate_mz_df
 
@@ -12,39 +13,66 @@ PPM_TOLERANCE = 10
 
 
 class DeconvolutionParameters:
-    def __init__(self, parameters):
-        self.averagine = parameters.get(
-            "averagine", ms_ditp.Averagine(create_averagine())
-        )
-        # The minimum score between the theo and exp spectra using MSDeconVFitter which is accepted!
-        # TODO: Take care of this score, there should be way to estimate this score!
-        # Or use multiple passes, if the score is too large, i.e. the number
-        # of peaks after deisotoping are less than \alpha (num peaks), increase this value!
-        self.min_score = parameters.get("min_score", 150.0)
-        # The Absolute error tolerance between the theoretical m/z and the exp m/z which is accepted!
-        # perhaps this should be < 1./max(charge) for a reasonable value.
-        self.mass_error_tol = parameters.get("mass_error_tol", 0.02)
+    def __init__(self, params: dict):
+        # Set possibly bunch-dependent parameters (if given)
+        self.charge_range = params.pop("charge_range", None)
+        self.minimum_intensity = params.pop("minimum_intensity", None)
 
-        # The parameters are intensity scale dependent.
-        # We will need to find this dependent on the intensity of the scans!
-
-        # For MS1 and 0.8 for MS2 as per the recommendation of the ms_ditp author!
-        # See the discussion in ms_isotope docs
-        # SENSITIVE TO THIS PARAMETER! EXTREMELY SENSITIVE! Reduce this if high mass ions are missing!
-        # The authors propose to use `incremental_truncation` if the latter is the case! Explore this later!
-        # Play with the parameter Truncate_after! Perhaps also reduce the minimum score of the scorer, such that multiple peaks with problems are coalesced into one!
-        self.truncate_after = parameters.get("truncate_after", 0.9)
-        # What to do with the intensity of the different peaks!
-        self.scale = parameters.get("scale", "sum")
-        # If this parameter is increased then more deconvoluted peaks are selected, keep this small preferrentially (0 or 1)
-        self.max_missed_peaks = parameters.get("max_missed_peaks", 0)
-        # PPM error tolerance to use to match experimental to theoretical peaks, default = 2e-5
-        self.error_tol = parameters.get("error_tol", 2e-5)
-        # How to scale intensities when comparing theoretical to exp isotopic distributions, default = "sum"
-        self.scale_method = parameters.get("scale_method", "sum")
+        # Set bunch-independent parameters
+        self.bunch_independent_params = set_bunch_independent_params(params=params)
 
 
-def create_averagine(backbone: str):
+def set_bunch_independent_params(params: dict) -> dict:
+    """
+    Set full dict for deconvolution parameters independent of the peak bunch.
+
+    Parameters
+    ----------
+    params : dict
+        Dictionary containing some, not necessary all deconvolution parameters.
+
+
+    Returns
+    -------
+    params : dict
+        Dictionary containing all bunch-independent deconvolution parameters.
+
+    """
+    # TODO: Take care of "min_score", there should be way to estimate it
+    # Select minimum accepted score between theoretical and experimental spectra
+    min_score = params.pop("min_score", 150.0)
+
+    # Select error tolerance between theoretical and experimental m/z;
+    # perhaps this should be < 1./max(charge) for a reasonable value
+    mass_error_tol = params.pop("mass_error_tol", 0.02)
+
+    # Calculate goodness-of-fit criterion for envelope scoring
+    params.setdefault("scorer", ms_ditp.MSDeconVFitter(min_score, mass_error_tol))
+
+    # Set average composition of considered bases
+    params.setdefault(
+        "averagine", ms_ditp.Averagine(set_averagine(backbone="phosphate"))
+    )
+
+    # Set maximum number of tolerated missed peaks (keep small, i.e. 0 or 1)
+    params.setdefault("max_missed_peaks", 0)
+
+    # Set name of method to scale intensity value
+    params.setdefault("scale_method", "sum")
+
+    # Set error tolerance for matching experimental and theoretical peaks
+    params.setdefault("error_tol", 2e-5)
+
+    # TODO: Play with "truncate_after"; explore "incremental_truncation";
+    #  perhaps also reduce the "min_score", such that multiple peaks
+    #  with problems are coalesced into one
+    # Set percentage of included isotopic pattern (very sensitive, see discussion in ms_deisotope docs)
+    params.setdefault("truncate_after", 0.9)
+
+    return params
+
+
+def set_averagine(backbone: str) -> dict:
     """
     Calculate the average elemental composition of RNA.
 
@@ -101,7 +129,9 @@ def create_averagine(backbone: str):
     return average_composition
 
 
-def deconvolute_scans(file_path, parameters, extract_mz=True):
+def deconvolute_scans(
+    file_path: str, params: dict, extract_mz: bool = True
+) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
     Deconvolute and deisotope MS2 scans from ThermoFisher RAW files and output
     a Polars dataframe containing deisotoped peaks and the estimated intact
@@ -111,8 +141,8 @@ def deconvolute_scans(file_path, parameters, extract_mz=True):
     ----------
     file_path : str
         Path of RAW file from ThermoFisher.
-    parameters : dict
-        Dictionary of deisotoping parameters.
+    params : dict
+        Dictionary containing deconvolution parameters.
     extract_mz : bool, optional
         If true, extract m/z values per scan for singleton identification. The default is True.
 
@@ -125,16 +155,13 @@ def deconvolute_scans(file_path, parameters, extract_mz=True):
     sequence_mass : float
         Estimated intact sequence mass
     """
+    # Load deconvolution parameter based on parameter dict
+    params = DeconvolutionParameters(params)
+
     # Read data from raw file
     raw_file_read = ms_ditp.data_source.thermo_raw_net.ThermoRawLoader(
         file_path, _load_metadata=True
     )
-
-    # Load parameter defaults if not found in parameters dict
-    params = DeconvolutionParameters(parameters)
-
-    # Calculate goodness-of-fit criterion for envelope scoring
-    scorer = ms_ditp.MSDeconVFitter(params.min_score, params.mass_error_tol)
 
     # Initialize the raw_file_read iterator while ungrouping the MS1 from the MS2 scans
     raw_file_read.make_iterator(grouped=False)
@@ -150,16 +177,8 @@ def deconvolute_scans(file_path, parameters, extract_mz=True):
             # Centroid the scans
             bunch.pick_peaks()
 
-            # Compute additional parameters if they are not included in the parameters dict
-            charge_range = parameters.get("charge_range", default_charge_range(bunch))
-            minimum_intensity = parameters.get(
-                "minimum_intensity", default_min_intensity(bunch)
-            )
-
             # Deisotope the scan and generate the dataframe of monoisotopic masses
-            decon_df = generate_decon_df(
-                params, charge_range, minimum_intensity, scorer, bunch
-            )
+            decon_df = generate_decon_df(bunch=bunch, params=params)
 
             if decon_df is not None:
                 decon_list.append(decon_df)
@@ -230,42 +249,17 @@ def deconvolute_scans(file_path, parameters, extract_mz=True):
     return df_deconvoluted_agg, df_mz, sequence_mass
 
 
-def default_charge_range(bunch):
-    # The maximum considered charge cannot be greater than that of the MS1 precursor charge!
-    # Be careful of the polarity of the charge!
-    # If the charges are negative, the charge range needs to be supplied with negative sign!
-    charge = bunch.precursor_information.charge
-    if isinstance(charge, int):
-        return bunch.polarity, charge * bunch.polarity
-    else:
-        # TODO: Estimate this from the sequence length
-        # IMP: This number should be large enough to cover the charge states of the precursors!
-        return (
-            bunch.polarity,
-            bunch.polarity * 30,
-        )
-
-
-def default_min_intensity(bunch):
-    # minimum_intensity = 5. #Default = 5, ignore peaks below this intensity!
-    # Modify this based on the spectra!
-    return min(p.intensity for p in bunch.peak_set)
-    # Also, let the user define a threshold for this! and take the maximum of the above and this value!
-
-
-def generate_decon_df(params, charge_range, minimum_intensity, scorer, bunch):
+def generate_decon_df(bunch, params):
     # Main deconvolution/deisotoping function from ms_deisotope
     t = ms_ditp.deconvolute_peaks(
         bunch,
-        averagine=params.averagine,
-        scorer=scorer,
-        max_missed_peaks=params.max_missed_peaks,
-        charge_range=charge_range,
-        truncate_after=params.truncate_after,
-        scale=params.scale,
-        error_tolerance=params.error_tol,
-        minimum_intensity=minimum_intensity,
-        scale_method=params.scale_method,
+        charge_range=params.charge_range
+        if params.charge_range is not None
+        else select_charge_range(bunch),
+        minimum_intensity=params.minimum_intensity
+        if params.minimum_intensity is not None
+        else select_min_intensity(bunch),
+        **params.bunch_independent_params,
     ).peak_set
 
     # Obtain scan ID and time
@@ -328,3 +322,26 @@ def generate_decon_df(params, charge_range, minimum_intensity, scorer, bunch):
         return decon_df
     else:
         return None
+
+
+def select_charge_range(bunch):
+    # The maximum considered charge cannot be greater than that of the MS1 precursor charge!
+    # Be careful of the polarity of the charge!
+    # If the charges are negative, the charge range needs to be supplied with negative sign!
+    charge = bunch.precursor_information.charge
+    if isinstance(charge, int):
+        return bunch.polarity, charge * bunch.polarity
+    else:
+        # TODO: Estimate this from the sequence length
+        # IMP: This number should be large enough to cover the charge states of the precursors!
+        return (
+            bunch.polarity,
+            bunch.polarity * 30,
+        )
+
+
+def select_min_intensity(bunch):
+    # minimum_intensity = 5. #Default = 5, ignore peaks below this intensity!
+    # Modify this based on the spectra!
+    return min(p.intensity for p in bunch.peak_set)
+    # Also, let the user define a threshold for this! and take the maximum of the above and this value!

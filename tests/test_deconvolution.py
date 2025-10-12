@@ -1,6 +1,6 @@
 import pytest
 
-from lionelmssq.deconvolution import create_averagine
+from lionelmssq.deconvolution import set_averagine
 
 AVERAGINE = {
     "no_backbone": {"C": 9.5, "H": 12.75, "N": 3.75, "O": 5.0, "P": 0.0, "S": 0.0},
@@ -10,8 +10,8 @@ AVERAGINE = {
 
 
 @pytest.mark.parametrize("backbone", AVERAGINE.keys())
-def test_create_averagine(backbone):
-    averagine = create_averagine(backbone=backbone)
+def test_set_averagine(backbone):
+    averagine = set_averagine(backbone=backbone)
     print(averagine)
     print(AVERAGINE[backbone])
     assert averagine == AVERAGINE[backbone]

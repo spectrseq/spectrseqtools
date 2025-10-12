@@ -26,8 +26,8 @@ def preprocess(
         Dictionary with parameters for deconvolution.
     meta_params : dict
         Dictionary with meta parameters.
-    identify_singletons : bool
-        Flag whether to identify singletons from data.
+    identify_singletons : bool, optional
+        Flag whether to identify singletons from data. Default: True
 
     Returns
     -------
@@ -42,7 +42,7 @@ def preprocess(
     # Deconvolute raw data from file
     df_deconvoluted, df_mz, sequence_mass = deconvolute_scans(
         file_path=str(file_path),
-        parameters=deconvolution_params,
+        params=deconvolution_params,
         extract_mz=True,
     )
 
