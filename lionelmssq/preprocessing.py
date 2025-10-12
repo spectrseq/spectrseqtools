@@ -40,7 +40,7 @@ def preprocess(
 
     """
     # Deconvolute raw data from file
-    df_deconvoluted, df_mz, sequence_mass = deconvolute_scans(
+    df_deconvoluted, df_mz = deconvolute_scans(
         file_path=str(file_path),
         params=deconvolution_params,
         extract_mz=True,
@@ -51,7 +51,32 @@ def preprocess(
 
     # Update meta parameters (if needed)
     meta_params.setdefault("identity", file_path.stem)
-    meta_params.setdefault("sequence_mass", sequence_mass)
+    meta_params.setdefault("sequence_mass", select_sequence_mass(df_deconvoluted))
     meta_params.setdefault("true_sequence", None)
 
     return df_deconvoluted, df_singletons, meta_params
+
+
+def select_sequence_mass(df_deconvoluted: pl.DataFrame) -> float:
+    """
+    Select sequence mass from deconvoluted fragments.
+
+    Determine the aggregated neutral_mass with (1) a deisotoped precursor and
+    (2) the largest aggregated intensity as estimated intact sequence mass.
+
+    Parameters
+    ----------
+    df_deconvoluted : pl.DataFrame
+        Dataframe containing deconvoluted fragments.
+
+    Returns
+    -------
+    float
+        Sequence mass estimation.
+
+    """
+    return (
+        df_deconvoluted.filter(pl.col("is_precursor_deisotoped"))
+        .filter(pl.col("intensity") == pl.col("intensity").max())["neutral_mass"]
+        .to_list()[0]
+    )

@@ -131,11 +131,10 @@ def set_averagine(backbone: str) -> dict:
 
 def deconvolute_scans(
     file_path: str, params: dict, extract_mz: bool = True
-) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
+) -> Tuple[pl.DataFrame, pl.DataFrame]:
     """
     Deconvolute and deisotope MS2 scans from ThermoFisher RAW files and output
-    a Polars dataframe containing deisotoped peaks and the estimated intact
-    sequence mass.
+    a Polars dataframe containing deisotoped peaks.
 
     Parameters
     ----------
@@ -152,8 +151,7 @@ def deconvolute_scans(
         Dataframe containing monoisotopic masses and intensities.
     df_mz : pl.DataFrame
         Dataframe containing mass-to-charge ratios and intensities.
-    sequence_mass : float
-        Estimated intact sequence mass
+
     """
     # Load deconvolution parameter based on parameter dict
     params = DeconvolutionParameters(params)
@@ -222,15 +220,6 @@ def deconvolute_scans(
         .sort("neutral_mass")
     )
 
-    # The aggregated neutral_mass with
-    # (1) a deisotoped precursor and
-    # (2) has the largest aggregated intensity is the estimated intact sequence mass
-    sequence_mass = (
-        df_deconvoluted_agg.filter(pl.col("is_precursor_deisotoped"))
-        .filter(pl.col("intensity") == pl.col("intensity").max())["neutral_mass"]
-        .to_list()[0]
-    )
-
     # Post-processing for df_mz
     if extract_mz:
         # Generate cluster indices when m/z is within PPM_TOLERANCE of each other
@@ -246,7 +235,7 @@ def deconvolute_scans(
     else:
         df_mz = None
 
-    return df_deconvoluted_agg, df_mz, sequence_mass
+    return df_deconvoluted_agg, df_mz
 
 
 def generate_decon_df(bunch, params):
