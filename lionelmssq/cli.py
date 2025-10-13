@@ -93,7 +93,7 @@ def main():
         reduce_table = True
         reduce_set = False
 
-    _, unique_masses, explanation_masses = initialize_nucleotide_df(
+    _, _, unique_masses, explanation_masses = initialize_nucleotide_df(
         reduce_set=reduce_set
     )
     threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)

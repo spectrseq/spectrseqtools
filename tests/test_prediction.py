@@ -77,7 +77,7 @@ def test_testcase(testcase):
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
 
-        _, unique_masses, explanation_masses = initialize_nucleotide_df(
+        _, _, unique_masses, explanation_masses = initialize_nucleotide_df(
             reduce_set=False
         )
 
@@ -150,7 +150,9 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
-        _, unique_masses, explanation_masses = initialize_nucleotide_df(reduce_set=True)
+        _, _, unique_masses, explanation_masses = initialize_nucleotide_df(
+            reduce_set=True
+        )
 
         seq_info = SequenceInformation(
             max_len=int(

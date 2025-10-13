@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from dbscan1d.core import DBSCAN1D
 from sklearn.metrics import silhouette_score
 from typing import List
+
 from lionelmssq.common import initialize_raw_file_iterator
-from lionelmssq.masses import ELEMENT_MASSES, PHOSPHATE_LINK_MASS, MASSES
+from lionelmssq.masses import MZ_MASSES
 
 rt = get_mono()
 
@@ -77,22 +78,6 @@ def extract_mz_data(file_path: str) -> pl.DataFrame:
     return df_mz
 
 
-# Calculate ion mass from monoisotopic mass of each nucleoside in the reference table
-UNIQUE_MASSES = (
-    (
-        MASSES.group_by("monoisotopic_mass", maintain_order=True).agg(
-            pl.col("nucleoside").unique()
-        )
-    ).with_columns(
-        pl.col("monoisotopic_mass")
-        .add(
-            PHOSPHATE_LINK_MASS - ELEMENT_MASSES["H+"]
-        )  # Add phosphate adduct and subtract one proton
-        .alias("theoretical_mz")
-    )
-).sort("theoretical_mz")
-
-
 @dataclass
 class RawPeak:
     scan_id: int
@@ -126,23 +111,11 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
     scan_id = int(bunch.scan_id.split("scan=")[-1])
 
     # Calculate theoretical bounds, i.e. accepted m/z range
-    min_mz = (
-        UNIQUE_MASSES["theoretical_mz"].min()
-        - (
-            UNIQUE_MASSES["theoretical_mz"].min()
-            * THEORETICAL_BOUNDARY_FACTOR
-            * PPM_TOLERANCE
-        )
-        / 1e6
+    min_mz = MZ_MASSES["theoretical_mz"].min() * (
+        1 - THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
     )
-    max_mz = (
-        UNIQUE_MASSES["theoretical_mz"].max()
-        + (
-            UNIQUE_MASSES["theoretical_mz"].max()
-            * THEORETICAL_BOUNDARY_FACTOR
-            * PPM_TOLERANCE
-        )
-        / 1e6
+    max_mz = MZ_MASSES["theoretical_mz"].max() * (
+        1 + THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
     )
 
     peak_list = []
@@ -217,7 +190,7 @@ def match_singletons(file_path: str) -> pl.DataFrame:
 
     # Match m/z to theoretical m/z from the reference table
     df_mz = df_mz.sort("mz").join_asof(
-        UNIQUE_MASSES.sort("theoretical_mz"),
+        MZ_MASSES.sort("theoretical_mz"),
         left_on="mz",
         right_on="theoretical_mz",
         strategy="nearest",

@@ -62,6 +62,19 @@ def initialize_nucleotide_df(reduce_set):
     # Round nucleoside masses
     masses = masses.with_columns(pl.col("monoisotopic_mass").round(DECIMAL_PLACES))
 
+    # Aggregate nucleosides for each mass and add theoretical m/z mass
+    mz_masses = (
+        masses.group_by("monoisotopic_mass", maintain_order=True)
+        .agg(pl.col("nucleoside").unique())
+        .with_columns(
+            pl.col("monoisotopic_mass")
+            .add(
+                PHOSPHATE_LINK_MASS - ELEMENT_MASSES["H+"]
+            )  # Add phosphate adduct and subtract one proton
+            .alias("theoretical_mz")
+        )
+    ).sort("theoretical_mz")
+
     # Select unique nucleoside masses
     unique_masses = (
         masses.group_by("monoisotopic_mass", maintain_order=True)
@@ -77,10 +90,12 @@ def initialize_nucleotide_df(reduce_set):
         .alias("tolerated_integer_masses")
     )
 
-    return masses, unique_masses, explanation_masses
+    return masses, mz_masses, unique_masses, explanation_masses
 
 
-MASSES, UNIQUE_MASSES, EXPLANATION_MASSES = initialize_nucleotide_df(REDUCE_SET)
+MASSES, MZ_MASSES, UNIQUE_MASSES, EXPLANATION_MASSES = initialize_nucleotide_df(
+    REDUCE_SET
+)
 
 
 # METHOD: Precompute all weight changes caused by breakages and adapt the
