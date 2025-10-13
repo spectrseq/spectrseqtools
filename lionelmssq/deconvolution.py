@@ -168,8 +168,8 @@ def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
 
     Returns
     -------
-    df_deconvoluted : polars.DataFrame
-        Dataframe containing monoisotopic masses and intensities.
+    polars.DataFrame
+        Dataframe containing fragment monoisotopic masses and intensities.
 
     """
     # Load deconvolution parameter based on parameter dict
@@ -192,45 +192,7 @@ def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
         # Move on to the next scan
         bunch = next(raw_file_read)
 
-    # Build the polars dataframe
-    df_deconvoluted = pl.DataFrame(
-        data=np.array(
-            [
-                [peak.__dict__[key] for key in COL_TYPES_DEISOTOPED.keys()]
-                for peak in peak_list
-            ]
-        ),
-        schema=COL_TYPES_DEISOTOPED,
-    )
-
-    # Intact sequence mass calculation
-    # Generate cluster indices when mass is within PPM_TOLERANCE of each other
-    df_deconvoluted = df_deconvoluted.sort("neutral_mass").with_columns(
-        (
-            1e6
-            * abs(pl.col("neutral_mass").shift(1) - pl.col("neutral_mass"))
-            / pl.col("neutral_mass").shift(1)
-        )
-        .fill_null(0)
-        .fill_nan(0)
-        .gt(PPM_TOLERANCE)
-        .cum_sum()
-        .alias("ppm_group")
-    )
-
-    # Aggregate the final dataframe by PPM group while taking the maximum
-    # neutral_mass and sum of the intensities for each group
-    df_deconvoluted_agg = (
-        df_deconvoluted.group_by("ppm_group")
-        .agg(
-            neutral_mass=pl.col("neutral_mass").max(),
-            intensity=pl.col("intensity").sum(),
-            is_precursor_deisotoped=pl.col("is_deisotoped").max(),
-        )
-        .sort("neutral_mass")
-    )
-
-    return df_deconvoluted_agg
+    return aggregate_peaks_into_fragments(peak_list)
 
 
 @dataclass
@@ -361,3 +323,58 @@ def select_min_intensity(bunch: ms_ditp.data_source.Scan) -> float:
     # Return minimum intensity found in peak set of scan
     return min(p.intensity for p in bunch.peak_set)
     # TODO: Let the user define a threshold and take maximum of it and the above
+
+
+def aggregate_peaks_into_fragments(peak_list: List[DeisotopedPeak]) -> pl.DataFrame:
+    """
+    Aggregate deisotoped peaks into fragments by grouping based on similar mass.
+
+    Build dataframe of deisotoped peaks, group the peaks by their mass
+    (within PPM tolerance), and aggregate them by selecting the maximum
+    observed mass and total observed intensity in each group as a fragment.
+
+    Parameters
+    ----------
+    peak_list : List[DeisotopedPeak]
+        List containing deconvoluted peak data.
+
+    Returns
+    -------
+    peak_df : polars.DataFrame
+        Dataframe containing fragment monoisotopic masses and intensities.
+
+    """
+    # Build dataframe from peak list
+    peak_df = pl.DataFrame(
+        data=np.array(
+            [
+                [peak.__dict__[key] for key in COL_TYPES_DEISOTOPED.keys()]
+                for peak in peak_list
+            ]
+        ),
+        schema=COL_TYPES_DEISOTOPED,
+    )
+
+    # Cluster peaks together when mass is within PPM tolerance of each other
+    peak_df = peak_df.sort("neutral_mass").with_columns(
+        (
+            abs(pl.col("neutral_mass").shift(1) - pl.col("neutral_mass"))
+            / pl.col("neutral_mass").shift(1)
+        )
+        .fill_null(0)
+        .fill_nan(0)
+        .gt(PPM_TOLERANCE / 1e6)
+        .cum_sum()
+        .alias("ppm_group")
+    )
+
+    # Aggregate by PPM group (assign maximum neutral mass and total intensity to each group)
+    return (
+        peak_df.group_by("ppm_group")
+        .agg(
+            neutral_mass=pl.col("neutral_mass").max(),
+            intensity=pl.col("intensity").sum(),
+            is_precursor_deisotoped=pl.col("is_deisotoped").max(),
+        )
+        .sort("neutral_mass")
+    )
