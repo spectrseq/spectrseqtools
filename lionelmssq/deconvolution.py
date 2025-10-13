@@ -154,10 +154,9 @@ def set_averagine(backbone: str) -> dict:
     return average_composition
 
 
-def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
+def deconvolute(file_path: str, params: dict) -> pl.DataFrame:
     """
-    Deconvolute and deisotope MS2 scans from ThermoFisher RAW files and output
-    a Polars dataframe containing deisotoped peaks.
+    Deconvolute/deisotope peaks in MS2 scans from ThermoFisher RAW files.
 
     Parameters
     ----------
@@ -175,22 +174,20 @@ def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
     # Load deconvolution parameter based on parameter dict
     params = DeconvolutionParameters(params)
 
-    # Initialize the first scan from an iterator of the RAW file
+    # Initialize iterator for RAW file
     raw_file_read = initialize_raw_file_iterator(file_path=file_path)
-    bunch = next(raw_file_read)
 
     peak_list = []
     for _ in tqdm.tqdm(range(len(raw_file_read) - 1), desc="Deisotoping MS2 scans"):
-        # Only consider MS2 scans
-        if bunch.ms_level == 2:
-            # Centroid the scans
-            bunch.pick_peaks()
-
-            # Deisotope the scan and generate the dataframe of monoisotopic masses
-            peak_list += deconvolute_scan(bunch=bunch, params=params)
-
-        # Move on to the next scan
+        # Select next scan
         bunch = next(raw_file_read)
+
+        # Skip scan if it is no MS2 scan
+        if bunch.ms_level != 2:
+            continue
+
+        # Deconvolute the scan to get list of deisotoped peaks
+        peak_list += deconvolute_scan(bunch=bunch, params=params)
 
     return aggregate_peaks_into_fragments(peak_list)
 
@@ -226,6 +223,9 @@ def deconvolute_scan(
         List containing deconvoluted peak data.
 
     """
+    # Convert scan to centroid data
+    bunch.pick_peaks()
+
     # Deconvolute/deisotope with ms_deisotope
     peak_set = ms_ditp.deconvolute_peaks(
         bunch,

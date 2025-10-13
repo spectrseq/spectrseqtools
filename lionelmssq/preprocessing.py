@@ -1,7 +1,7 @@
 import polars as pl
 from typing import Tuple
 
-from lionelmssq.deconvolution import deconvolute_scans
+from lionelmssq.deconvolution import deconvolute
 from lionelmssq.singleton_matching import match_singletons
 
 
@@ -9,7 +9,6 @@ def preprocess(
     file_path: str,
     deconvolution_params: dict,
     meta_params: dict,
-    identify_singletons: bool = True,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
     Deconvolute MS2 scans and identify singletons.
@@ -26,39 +25,35 @@ def preprocess(
         Dictionary with parameters for deconvolution.
     meta_params : dict
         Dictionary with meta parameters.
-    identify_singletons : bool, optional
-        Flag whether to identify singletons from data. Default: True
 
     Returns
     -------
-    df_deconvoluted : polars.DataFrame
+    fragments : polars.DataFrame
         Dataframe containing deconvoluted fragments.
-    df_singletons : polars.DataFrame
+    singletons : polars.DataFrame
         Dataframe containing singleton data.
     meta_params : dict
         Dictionary with updated meta parameters.
 
     """
     # Deconvolute raw data from file
-    df_deconvoluted = deconvolute_scans(
+    fragments = deconvolute(
         file_path=str(file_path),
         params=deconvolution_params,
     )
 
-    # Identify singletons (if desired)
-    df_singletons = (
-        match_singletons(file_path=str(file_path)) if identify_singletons else None
-    )
+    # Identify singletons
+    singletons = match_singletons(file_path=str(file_path))
 
     # Update meta parameters (if needed)
     meta_params.setdefault("identity", file_path.stem)
-    meta_params.setdefault("sequence_mass", select_sequence_mass(df_deconvoluted))
+    meta_params.setdefault("sequence_mass", select_sequence_mass(fragments))
     meta_params.setdefault("true_sequence", None)
 
-    return df_deconvoluted, df_singletons, meta_params
+    return fragments, singletons, meta_params
 
 
-def select_sequence_mass(df_deconvoluted: pl.DataFrame) -> float:
+def select_sequence_mass(fragments: pl.DataFrame) -> float:
     """
     Select sequence mass from deconvoluted fragments.
 
@@ -67,7 +62,7 @@ def select_sequence_mass(df_deconvoluted: pl.DataFrame) -> float:
 
     Parameters
     ----------
-    df_deconvoluted : polars.DataFrame
+    fragments : polars.DataFrame
         Dataframe containing deconvoluted fragments.
 
     Returns
@@ -77,7 +72,7 @@ def select_sequence_mass(df_deconvoluted: pl.DataFrame) -> float:
 
     """
     return (
-        df_deconvoluted.filter(pl.col("is_precursor_deisotoped"))
+        fragments.filter(pl.col("is_precursor_deisotoped"))
         .filter(pl.col("intensity") == pl.col("intensity").max())["neutral_mass"]
         .to_list()[0]
     )
