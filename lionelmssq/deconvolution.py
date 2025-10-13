@@ -13,6 +13,17 @@ PPM_TOLERANCE = 10
 # TODO: Estimate the default value from sequence length (IMP: Should be
 #  large enough to cover the charge states of the precursors!
 DEFAULT_CHARGE_VALUE = 30
+ISOTOPIC_SHIFT_FACTOR = 10
+
+
+# METHOD: To deconvolute/deisotope (which we use interchangeable because both
+# happen at the same time) a MS2 scan, we determine all its peaks with
+# the ms_deisotope package. We then identify the precursor peak (if it exists)
+# and perform a check whether it has been deisotoped (since this is the only
+# one that we can reliably obtain as there exists a reference m/z).
+# We call a precursor correctly deisotoped if the m/z of the peak is:
+# (1) less than the m/z of the precursor, and
+# (2) greater than its isotopic shift times a given factor (here: 10).
 
 
 class DeconvolutionParameters:
@@ -164,7 +175,7 @@ def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
             bunch.pick_peaks()
 
             # Deisotope the scan and generate the dataframe of monoisotopic masses
-            decon_df = generate_decon_df(bunch=bunch, params=params)
+            decon_df = deconvolute_scan(bunch=bunch, params=params)
 
             if decon_df is not None:
                 decon_list.append(decon_df)
@@ -204,9 +215,25 @@ def deconvolute_scans(file_path: str, params: dict) -> pl.DataFrame:
     return df_deconvoluted_agg
 
 
-def generate_decon_df(bunch, params):
-    # Main deconvolution/deisotoping function from ms_deisotope
-    t = ms_ditp.deconvolute_peaks(
+def deconvolute_scan(bunch: ms_ditp.data_source.Scan, params: dict) -> pl.DataFrame:
+    """
+    Deconvolute peaks from MS2 scan and return them in dataframe.
+
+    Parameters
+    ----------
+    bunch : ms_deisotope.data_source.Scan
+        ThermoFisher scan.
+    params : dict
+        Dictionary containing deconvolution parameters.
+
+    Returns
+    -------
+    decon_df : polars.DataFrame
+        Dataframe containing deconvoluted peak data.
+
+    """
+    # Deconvolute/deisotope with ms_deisotope
+    peak_set = ms_ditp.deconvolute_peaks(
         bunch,
         charge_range=params.charge_range
         if params.charge_range is not None
@@ -217,66 +244,61 @@ def generate_decon_df(bunch, params):
         **params.bunch_independent_params,
     ).peak_set
 
-    # Obtain scan ID and time
-    scan_id = int(bunch.scan_id.split("scan=")[-1])
-    scan_time = bunch.scan_time * 60
-
-    # Calculate m/z isolation window
-    iso = bunch.isolation_window
-    min_mz = iso.target - (1 * iso.lower)
-    max_mz = iso.target + (1 * iso.upper)
-
-    precursor_mz = bunch.precursor_information.mz
-
-    if len(t) > 0:
-        # Initialize lists containing deisotoped information
-        t_peak_index = [0] * len(t)
-        t_intensity = [0] * len(t)
-        t_neutral_mass = [0] * len(t)
-        t_is_precursor = [False] * len(t)
-        t_is_deisotoped = [False] * len(t)
-        t_mz = [0] * len(t)
-
-        # Iterate through the deisotoped scan
-        for i in range(len(t)):
-            t_peak_index[i] = i
-            t_intensity[i] = t.peaks[i].intensity
-            t_neutral_mass[i] = t.peaks[i].neutral_mass
-            t_mz[i] = t.peaks[i].mz
-
-            # Peak refers to a precursor scan if the m/z is within the isolation window
-            if min_mz < t_mz[i] < max_mz:
-                t_is_precursor[i] = True
-
-                # Attempt to quality check the deisotoping step by checking if
-                # the precursor isotope envelope has been deisotoped
-                # `is_deisotoped` only refers to the precursor isotope envelope,
-                # since this is the only envelope that we can reliably obtain
-                # (since we have a reference m/z)
-                # A precursor isotope envelope is deisotoped if the peak is:
-                # (1) less than the precursor m/z, and
-                # (2) greater than 10 times the isotopic shift
-                shift = abs(ms_ditp.averagine.isotopic_shift(t.peaks[i].charge))
-                if precursor_mz - (10 * shift) < t_mz[i] <= precursor_mz:
-                    t_is_deisotoped[i] = True
-
-        # Build the deisotoped dataframe for a scan
-        decon_df = pl.DataFrame(
-            data={
-                "scan_id": scan_id,
-                "scan_time": scan_time,
-                "peak_index": t_peak_index,
-                "intensity": t_intensity,
-                "neutral_mass": t_neutral_mass,
-                "is_precursor": t_is_precursor,
-                "is_precursor_deisotoped": t_is_deisotoped,
-                "mz": t_mz,
-            }
-        )
-
-        return decon_df
-    else:
+    # Return None if scan does not contain any deisotoped peaks
+    if len(peak_set) <= 0:
         return None
+
+    # Obtain scan time (in min) and scan ID
+    scan_time = bunch.scan_time * 60
+    scan_id = int(bunch.scan_id.split("scan=")[-1])
+
+    # Calculate m/z of precursor and accepted m/z range
+    precursor_mz = bunch.precursor_information.mz
+    min_mz = bunch.isolation_window.target - (1 * bunch.isolation_window.lower)
+    max_mz = bunch.isolation_window.target + (1 * bunch.isolation_window.upper)
+
+    # Initialize lists containing peak information
+    peak_index = [0] * len(peak_set)
+    intensity = [0] * len(peak_set)
+    neutral_mass = [0] * len(peak_set)
+    is_precursor = [False] * len(peak_set)
+    is_deisotoped = [False] * len(peak_set)
+    mz = [0] * len(peak_set)
+
+    # Iterate through the deisotoped scan
+    for idx in range(len(peak_set)):
+        peak_index[idx] = idx
+        intensity[idx] = peak_set.peaks[idx].intensity
+        neutral_mass[idx] = peak_set.peaks[idx].neutral_mass
+        is_precursor[idx] = min_mz <= peak_set.peaks[idx].mz <= max_mz
+        is_deisotoped[idx] = (
+            False
+            if not is_precursor[idx]
+            else precursor_mz
+            - abs(
+                ISOTOPIC_SHIFT_FACTOR
+                * ms_ditp.averagine.isotopic_shift(peak_set.peaks[idx].charge)
+            )
+            <= peak_set.peaks[idx].mz
+            <= precursor_mz
+        )
+        mz[idx] = peak_set.peaks[idx].mz
+
+    # Build dataframe for deisotoped scan
+    decon_df = pl.DataFrame(
+        data={
+            "scan_id": scan_id,
+            "scan_time": scan_time,
+            "peak_index": peak_index,
+            "intensity": intensity,
+            "neutral_mass": neutral_mass,
+            "is_precursor": is_precursor,
+            "is_precursor_deisotoped": is_deisotoped,
+            "mz": mz,
+        }
+    )
+
+    return decon_df
 
 
 def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
@@ -286,6 +308,7 @@ def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
     Parameters
     ----------
     bunch : ms_deisotope.data_source.Scan
+        ThermoFisher scan.
 
     Returns
     -------
