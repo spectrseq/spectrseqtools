@@ -304,8 +304,21 @@ def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
     return bunch.polarity, charge * bunch.polarity
 
 
-def select_min_intensity(bunch):
-    # minimum_intensity = 5. #Default = 5, ignore peaks below this intensity!
-    # Modify this based on the spectra!
+def select_min_intensity(bunch: ms_ditp.data_source.Scan) -> float:
+    """
+    Select minimum intensity value below which peaks are ignored.
+
+    Parameters
+    ----------
+    bunch : ms_deisotope.data_source.Scan
+        ThermoFisher scan.
+
+    Returns
+    -------
+    float
+        Minimum intensity value.
+
+    """
+    # Return minimum intensity found in peak set of scan
     return min(p.intensity for p in bunch.peak_set)
-    # Also, let the user define a threshold for this! and take the maximum of the above and this value!
+    # TODO: Let the user define a threshold and take maximum of it and the above
