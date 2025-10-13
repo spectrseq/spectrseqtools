@@ -24,9 +24,9 @@ COL_TYPES_RAW = {
 }
 
 
-def extract_mz_data(file_path: str) -> pl.DataFrame:
+def match_singletons(file_path: str) -> pl.DataFrame:
     """
-    Extract m/z data in MS2 scans from ThermoFisher RAW files.
+    Match observed m/z from RAW file to theoretical m/z from reference mass table.
 
     Parameters
     ----------
@@ -35,9 +35,8 @@ def extract_mz_data(file_path: str) -> pl.DataFrame:
 
     Returns
     -------
-    df_mz : polars.DataFrame
-        Dataframe containing mass-to-charge ratios and intensities.
-
+    df_matches : polars.DataFrame
+        Dataframe containing candidate nucleosides obtained by matching singletons.
     """
     # Initialize the first scan from an iterator of the RAW file
     raw_file_read = initialize_raw_file_iterator(file_path=file_path)
@@ -75,7 +74,47 @@ def extract_mz_data(file_path: str) -> pl.DataFrame:
         .alias("ppm_group")
     )
 
-    return df_mz
+    # Match m/z to theoretical m/z from the reference table
+    df_mz = df_mz.sort("mz").join_asof(
+        MZ_MASSES.sort("theoretical_mz"),
+        left_on="mz",
+        right_on="theoretical_mz",
+        strategy="nearest",
+    )
+
+    # Compute mass error between observed and theoretical m/z
+    df_mz = (
+        df_mz.sort("mz")
+        .with_columns(
+            (1e6 * abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
+            .fill_null(0)
+            .fill_nan(0)
+            .lt(PPM_TOLERANCE)
+            .alias("is_match")
+        )
+        .filter(pl.col("is_match"))
+        .sort(["nucleoside", "scan_time"])
+    )
+
+    df_mz_agg = df_mz.group_by("nucleoside").map_groups(
+        lambda x: pl.DataFrame(
+            {
+                "nucleoside": x["nucleoside"][0],
+                "cluster_score": cluster_score(x["scan_time"]),
+                "count": len(x["nucleoside"]),
+            }
+        )
+    )
+
+    # Take mass error that is less than PPM_TOLERANCE and flatten list of candidate singletons
+    df_matches = (
+        df_mz_agg.filter(pl.col("cluster_score") >= 0)
+        .select(["nucleoside", "count", "cluster_score"])
+        .sort("count", descending=True)
+        # .explode("nucleoside")
+    )
+
+    return df_matches
 
 
 @dataclass
@@ -170,62 +209,3 @@ def cluster_score(scantimes):
         score = silhouette_score(X, clusters)
 
     return score
-
-
-def match_singletons(file_path: str) -> pl.DataFrame:
-    """
-    Match observed m/z from RAW file to theoretical m/z from reference mass table.
-
-    Parameters
-    ----------
-    file_path : str
-        Path of RAW file from ThermoFisher.
-
-    Returns
-    -------
-    df_matches : polars.DataFrame
-        Dataframe containing candidate nucleosides obtained by matching singletons.
-    """
-    df_mz = extract_mz_data(file_path)
-
-    # Match m/z to theoretical m/z from the reference table
-    df_mz = df_mz.sort("mz").join_asof(
-        MZ_MASSES.sort("theoretical_mz"),
-        left_on="mz",
-        right_on="theoretical_mz",
-        strategy="nearest",
-    )
-
-    # Compute mass error between observed and theoretical m/z
-    df_mz = (
-        df_mz.sort("mz")
-        .with_columns(
-            (1e6 * abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
-            .fill_null(0)
-            .fill_nan(0)
-            .lt(PPM_TOLERANCE)
-            .alias("is_match")
-        )
-        .filter(pl.col("is_match"))
-        .sort(["nucleoside", "scan_time"])
-    )
-
-    df_mz_agg = df_mz.group_by("nucleoside").map_groups(
-        lambda x: pl.DataFrame(
-            {
-                "nucleoside": x["nucleoside"][0],
-                "cluster_score": cluster_score(x["scan_time"]),
-                "count": len(x["nucleoside"]),
-            }
-        )
-    )
-
-    # Take mass error that is less than PPM_TOLERANCE and flatten list of candidate singletons
-    df_matches = (
-        df_mz_agg.filter(pl.col("cluster_score") >= 0)
-        .select(["nucleoside", "count", "cluster_score"])
-        .sort("count", descending=True)
-        # .explode("nucleoside")
-    )
-
-    return df_matches
