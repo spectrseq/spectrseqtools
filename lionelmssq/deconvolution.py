@@ -3,12 +3,16 @@ import ms_deisotope as ms_ditp
 import polars as pl
 import tqdm as tqdm
 from clr_loader import get_mono
+from typing import Tuple
 
 from lionelmssq.common import initialize_raw_file_iterator
 
 rt = get_mono()
 
 PPM_TOLERANCE = 10
+# TODO: Estimate the default value from sequence length (IMP: Should be
+#  large enough to cover the charge states of the precursors!
+DEFAULT_CHARGE_VALUE = 30
 
 
 class DeconvolutionParameters:
@@ -275,20 +279,29 @@ def generate_decon_df(bunch, params):
         return None
 
 
-def select_charge_range(bunch):
-    # The maximum considered charge cannot be greater than that of the MS1 precursor charge!
-    # Be careful of the polarity of the charge!
-    # If the charges are negative, the charge range needs to be supplied with negative sign!
+def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
+    """
+    Select range for accepted charge values.
+
+    Parameters
+    ----------
+    bunch : ms_deisotope.data_source.Scan
+
+    Returns
+    -------
+    min_charge : int
+        Minimum accepted charge value.
+    max_charge : int
+        Maximum accepted charge value.
+
+    """
+    # Select charge (or use default if not given)
     charge = bunch.precursor_information.charge
-    if isinstance(charge, int):
-        return bunch.polarity, charge * bunch.polarity
-    else:
-        # TODO: Estimate this from the sequence length
-        # IMP: This number should be large enough to cover the charge states of the precursors!
-        return (
-            bunch.polarity,
-            bunch.polarity * 30,
-        )
+    if not isinstance(charge, int):
+        charge = DEFAULT_CHARGE_VALUE
+
+    # Return charge with consideration to polarity
+    return bunch.polarity, charge * bunch.polarity
 
 
 def select_min_intensity(bunch):
