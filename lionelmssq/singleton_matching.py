@@ -1,12 +1,26 @@
+import ms_deisotope as ms_ditp
+import numpy as np
 import polars as pl
 import tqdm as tqdm
+from clr_loader import get_mono
+from dataclasses import dataclass
 from dbscan1d.core import DBSCAN1D
 from sklearn.metrics import silhouette_score
-
+from typing import List
 from lionelmssq.common import initialize_raw_file_iterator
 from lionelmssq.masses import ELEMENT_MASSES, PHOSPHATE_LINK_MASS, MASSES
 
+rt = get_mono()
+
 PPM_TOLERANCE = 10
+THEORETICAL_BOUNDARY_FACTOR = 2
+COL_TYPES_RAW = {
+    "scan_id": pl.Int32,
+    "scan_time": pl.Float64,
+    "peak_idx": pl.Int64,
+    "intensity": pl.Float64,
+    "mz": pl.Float64,
+}
 
 
 def extract_mz_data(file_path: str) -> pl.DataFrame:
@@ -28,7 +42,7 @@ def extract_mz_data(file_path: str) -> pl.DataFrame:
     raw_file_read = initialize_raw_file_iterator(file_path=file_path)
     bunch = next(raw_file_read)
 
-    mz_list = []
+    peak_list = []
     for _ in tqdm.tqdm(
         range(len(raw_file_read) - 1), desc="Extract m/z data from MS2 scans"
     ):
@@ -38,15 +52,19 @@ def extract_mz_data(file_path: str) -> pl.DataFrame:
             bunch.pick_peaks()
 
             # Extract and generate dataframe of m/z for each scan (without deisotoping)
-            mz_df = generate_mz_df(bunch)
-            if mz_df is not None:
-                mz_list.append(mz_df)
+            peak_list += process_scan(bunch)
 
         # Move on to the next scan
         bunch = next(raw_file_read)
 
-    # Generate cluster indices when m/z is within PPM_TOLERANCE of each other
-    df_mz = pl.concat(mz_list)
+    # Build dataframe from peak list
+    df_mz = pl.DataFrame(
+        data=np.array(
+            [[peak.__dict__[key] for key in COL_TYPES_RAW.keys()] for peak in peak_list]
+        ),
+        schema=COL_TYPES_RAW,
+    )
+
     df_mz = df_mz.sort("mz").with_columns(
         (1e6 * abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
         .fill_null(0)
@@ -74,43 +92,75 @@ UNIQUE_MASSES = (
     )
 ).sort("theoretical_mz")
 
-# Compute for max and min theoretical m/z with 2*PPM_TOLERANCE excess
-THEO_MZ_MAX = UNIQUE_MASSES["theoretical_mz"].max() + (
-    UNIQUE_MASSES["theoretical_mz"].max() * 2 * PPM_TOLERANCE
-) / (1e6)
-THEO_MZ_MIN = UNIQUE_MASSES["theoretical_mz"].min() - (
-    UNIQUE_MASSES["theoretical_mz"].min() * 2 * PPM_TOLERANCE
-) / (1e6)
+
+@dataclass
+class RawPeak:
+    scan_id: int
+    scan_time: float
+    peak_idx: int
+    intensity: float
+    mz: float
 
 
-def generate_mz_df(bunch):
-    scan_id = int(bunch.scan_id.split("scan=")[-1])
+def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
+    """
+    Extract raw peaks from MS2 scan.
+
+    Parameters
+    ----------
+    bunch : ms_deisotope.data_source.Scan
+        ThermoFisher scan.
+
+    Returns
+    -------
+    peak_list : List[RawPeak]
+        List containing raw peak data.
+
+    """
+    # Return None if scan does not contain any peaks
+    if len(bunch.peaks) <= 0:
+        return []
+
+    # Obtain scan time and scan ID
     scan_time = bunch.scan_time
+    scan_id = int(bunch.scan_id.split("scan=")[-1])
 
-    b_peak_index = []
-    b_intensity = []
-    b_mz = []
-
-    if len(bunch.peaks) > 0:
-        for i in range(len(bunch.peaks)):
-            peak_mz = bunch.peaks[i].mz
-            # Limit peak m/z search by only considering ion masses within the theoretical bounds
-            if THEO_MZ_MIN <= peak_mz < THEO_MZ_MAX:
-                b_peak_index.append(i)
-                b_intensity.append(bunch.peaks[i].intensity)
-                b_mz.append(peak_mz)
-        mz_df = pl.DataFrame(
-            data={
-                "scan_id": scan_id,
-                "scan_time": scan_time,
-                "peak_index": b_peak_index,
-                "intensity": b_intensity,
-                "mz": b_mz,
-            }
+    # Calculate theoretical bounds, i.e. accepted m/z range
+    min_mz = (
+        UNIQUE_MASSES["theoretical_mz"].min()
+        - (
+            UNIQUE_MASSES["theoretical_mz"].min()
+            * THEORETICAL_BOUNDARY_FACTOR
+            * PPM_TOLERANCE
         )
-        return mz_df
-    else:
-        return None
+        / 1e6
+    )
+    max_mz = (
+        UNIQUE_MASSES["theoretical_mz"].max()
+        + (
+            UNIQUE_MASSES["theoretical_mz"].max()
+            * THEORETICAL_BOUNDARY_FACTOR
+            * PPM_TOLERANCE
+        )
+        / 1e6
+    )
+
+    peak_list = []
+    for idx in range(len(bunch.peaks)):
+        mz = bunch.peaks[idx].mz
+
+        # Only consider peaks with mass within theoretical bounds
+        if min_mz <= mz <= max_mz:
+            peak_list.append(
+                RawPeak(
+                    scan_id=scan_id,
+                    scan_time=scan_time,
+                    peak_idx=idx,
+                    intensity=bunch.peaks[idx].intensity,
+                    mz=mz,
+                )
+            )
+    return peak_list
 
 
 def cluster_score(scantimes):
@@ -205,55 +255,4 @@ def match_singletons(file_path: str) -> pl.DataFrame:
         # .explode("nucleoside")
     )
 
-    return df_matches
-
-
-def match_singletons_only(raw_file_read):
-    """
-    Full pipeline to match observed m/z from .RAW file to theoretical m/z from reference mass table without deisotoping first.
-
-    Parameters
-    ----------
-    raw_file_read : ms_deisotope.data_source.thermo_raw_net.ThermoRawLoader
-        Thermo RAW iterator.
-
-    Returns
-    -------
-    df_matches : polars dataframe
-        Dataframe containing list of candidate nucleosides obtained by matching singletons
-    """
-
-    # Initialize the raw_file_read iterator while ungrouping the MS1 from the MS2 scans
-    raw_file_read.make_iterator(grouped=False)
-    # Initialize the first scan from the iterator
-    bunch = next(raw_file_read)
-
-    mz_list = []
-    for _ in tqdm.tqdm(
-        range(len(raw_file_read) - 1), desc="Matching singletons only (no deisotoping)"
-    ):
-        if bunch.ms_level == 2:  # Only consider MS2 scans
-            # Centroid the scans
-            bunch.pick_peaks()
-
-            mz_df = generate_mz_df(bunch)
-            if mz_df is not None:
-                mz_list.append(mz_df)
-
-        # Move on to the next scan
-        bunch = next(raw_file_read)
-
-    # Post-processing for df_mz
-    # Generate cluster indices when m/z is within PPM_TOLERANCE of each other
-    df_mz = pl.concat(mz_list)
-    df_mz = df_mz.sort("mz").with_columns(
-        (1e6 * abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
-        .fill_null(0)
-        .fill_nan(0)
-        .gt(PPM_TOLERANCE)
-        .cum_sum()
-        .alias("ppm_group")
-    )
-
-    df_matches = match_singletons(df_mz)
     return df_matches
