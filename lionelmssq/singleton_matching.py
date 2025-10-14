@@ -46,14 +46,14 @@ def identify_singletons(file_path: str) -> pl.DataFrame:
         range(len(raw_file_read) - 1), desc="Extract m/z data from MS2 scans"
     ):
         # Select next scan
-        bunch = next(raw_file_read)
+        scan = next(raw_file_read)
 
         # Skip scan if it is no MS2 scan
-        if bunch.ms_level != 2:
+        if scan.ms_level != 2:
             continue
 
         # Extract raw peaks from scan (without deisotoping)
-        peak_list += process_scan(bunch)
+        peak_list += process_scan(scan)
 
     return select_singletons_from_peaks(peak_list=peak_list)
 
@@ -67,13 +67,13 @@ class RawPeak:
     mz: float
 
 
-def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
+def process_scan(scan: ms_ditp.data_source.Scan) -> List[RawPeak]:
     """
     Extract raw peaks from MS2 scan.
 
     Parameters
     ----------
-    bunch : ms_deisotope.data_source.Scan
+    scan : ms_deisotope.data_source.Scan
         ThermoFisher scan.
 
     Returns
@@ -83,15 +83,15 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
 
     """
     # Convert scan to centroid data
-    bunch.pick_peaks()
+    scan.pick_peaks()
 
     # Return None if scan does not contain any peaks
-    if len(bunch.peaks) <= 0:
+    if len(scan.peaks) <= 0:
         return []
 
     # Obtain scan time and scan ID
-    scan_time = bunch.scan_time
-    scan_id = int(bunch.scan_id.split("scan=")[-1])
+    scan_time = scan.scan_time
+    scan_id = int(scan.scan_id.split("scan=")[-1])
 
     # Calculate theoretical bounds, i.e. accepted m/z range
     min_mz = MZ_MASSES["theoretical_mz"].min() * (
@@ -102,8 +102,8 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
     )
 
     peak_list = []
-    for idx in range(len(bunch.peaks)):
-        mz = bunch.peaks[idx].mz
+    for idx in range(len(scan.peaks)):
+        mz = scan.peaks[idx].mz
 
         # Only consider peaks with mass within theoretical bounds
         if min_mz <= mz <= max_mz:
@@ -112,7 +112,7 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
                     scan_id=scan_id,
                     scan_time=scan_time,
                     peak_idx=idx,
-                    intensity=bunch.peaks[idx].intensity,
+                    intensity=scan.peaks[idx].intensity,
                     mz=mz,
                 )
             )

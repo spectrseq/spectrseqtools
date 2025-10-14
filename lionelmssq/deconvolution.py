@@ -40,17 +40,17 @@ COL_TYPES_DEISOTOPED = {
 
 class DeconvolutionParameters:
     def __init__(self, params: dict):
-        # Set possibly bunch-dependent parameters (if given)
+        # Set possibly scan-dependent parameters (if given)
         self.charge_range = params.pop("charge_range", None)
         self.minimum_intensity = params.pop("minimum_intensity", None)
 
-        # Set bunch-independent parameters
-        self.bunch_independent_params = set_bunch_independent_params(params=params)
+        # Set scan-independent parameters
+        self.scan_independent_params = set_scan_independent_params(params=params)
 
 
-def set_bunch_independent_params(params: dict) -> dict:
+def set_scan_independent_params(params: dict) -> dict:
     """
-    Set full dict for deconvolution parameters independent of the peak bunch.
+    Set full dict for deconvolution parameters independent of the peak scan.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def set_bunch_independent_params(params: dict) -> dict:
     Returns
     -------
     params : dict
-        Dictionary containing all bunch-independent deconvolution parameters.
+        Dictionary containing all scan-independent deconvolution parameters.
 
     """
     # TODO: Take care of "min_score", there should be way to estimate it
@@ -180,14 +180,14 @@ def deconvolute(file_path: str, params: dict) -> pl.DataFrame:
     peak_list = []
     for _ in tqdm.tqdm(range(len(raw_file_read) - 1), desc="Deisotoping MS2 scans"):
         # Select next scan
-        bunch = next(raw_file_read)
+        scan = next(raw_file_read)
 
         # Skip scan if it is no MS2 scan
-        if bunch.ms_level != 2:
+        if scan.ms_level != 2:
             continue
 
-        # Deconvolute the scan to get list of deisotoped peaks
-        peak_list += deconvolute_scan(bunch=bunch, params=params)
+        # Deconvolute scan to get list of deisotoped peaks
+        peak_list += deconvolute_scan(scan=scan, params=params)
 
     return aggregate_peaks_into_fragments(peak_list)
 
@@ -205,14 +205,14 @@ class DeisotopedPeak:
 
 
 def deconvolute_scan(
-    bunch: ms_ditp.data_source.Scan, params: dict
+    scan: ms_ditp.data_source.Scan, params: dict
 ) -> List[DeisotopedPeak]:
     """
     Deconvolute peaks from MS2 scan.
 
     Parameters
     ----------
-    bunch : ms_deisotope.data_source.Scan
+    scan : ms_deisotope.data_source.Scan
         ThermoFisher scan.
     params : dict
         Dictionary containing deconvolution parameters.
@@ -224,18 +224,18 @@ def deconvolute_scan(
 
     """
     # Convert scan to centroid data
-    bunch.pick_peaks()
+    scan.pick_peaks()
 
     # Deconvolute/deisotope with ms_deisotope
     peak_set = ms_ditp.deconvolute_peaks(
-        bunch,
+        scan,
         charge_range=params.charge_range
         if params.charge_range is not None
-        else select_charge_range(bunch),
+        else select_charge_range(scan),
         minimum_intensity=params.minimum_intensity
         if params.minimum_intensity is not None
-        else select_min_intensity(bunch),
-        **params.bunch_independent_params,
+        else select_min_intensity(scan),
+        **params.scan_independent_params,
     ).peak_set
 
     # Return None if scan does not contain any deisotoped peaks
@@ -243,13 +243,13 @@ def deconvolute_scan(
         return []
 
     # Obtain scan time (in min) and scan ID
-    scan_time = bunch.scan_time * 60
-    scan_id = int(bunch.scan_id.split("scan=")[-1])
+    scan_time = scan.scan_time * 60
+    scan_id = int(scan.scan_id.split("scan=")[-1])
 
     # Calculate m/z of precursor and accepted m/z range
-    precursor_mz = bunch.precursor_information.mz
-    min_mz = bunch.isolation_window.target - (1 * bunch.isolation_window.lower)
-    max_mz = bunch.isolation_window.target + (1 * bunch.isolation_window.upper)
+    precursor_mz = scan.precursor_information.mz
+    min_mz = scan.isolation_window.target - (1 * scan.isolation_window.lower)
+    max_mz = scan.isolation_window.target + (1 * scan.isolation_window.upper)
 
     # Iterate through the deisotoped scan
     peak_list = [0] * len(peak_set)
@@ -279,13 +279,13 @@ def deconvolute_scan(
     return peak_list
 
 
-def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
+def select_charge_range(scan: ms_ditp.data_source.Scan) -> Tuple[int, int]:
     """
     Select range for accepted charge values.
 
     Parameters
     ----------
-    bunch : ms_deisotope.data_source.Scan
+    scan : ms_deisotope.data_source.Scan
         ThermoFisher scan.
 
     Returns
@@ -297,21 +297,21 @@ def select_charge_range(bunch: ms_ditp.data_source.Scan) -> Tuple[int, int]:
 
     """
     # Select charge (or use default if not given)
-    charge = bunch.precursor_information.charge
+    charge = scan.precursor_information.charge
     if not isinstance(charge, int):
         charge = DEFAULT_CHARGE_VALUE
 
     # Return charge with consideration to polarity
-    return bunch.polarity, charge * bunch.polarity
+    return scan.polarity, charge * scan.polarity
 
 
-def select_min_intensity(bunch: ms_ditp.data_source.Scan) -> float:
+def select_min_intensity(scan: ms_ditp.data_source.Scan) -> float:
     """
     Select minimum intensity value below which peaks are ignored.
 
     Parameters
     ----------
-    bunch : ms_deisotope.data_source.Scan
+    scan : ms_deisotope.data_source.Scan
         ThermoFisher scan.
 
     Returns
@@ -321,7 +321,7 @@ def select_min_intensity(bunch: ms_ditp.data_source.Scan) -> float:
 
     """
     # Return minimum intensity found in peak set of scan
-    return min(p.intensity for p in bunch.peak_set)
+    return min(p.intensity for p in scan.peak_set)
     # TODO: Let the user define a threshold and take maximum of it and the above
 
 
