@@ -3,6 +3,7 @@ import os
 import polars as pl
 import yaml
 import pytest
+from clr_loader import get_mono
 
 from lionelmssq.cli import select_solver
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
@@ -18,6 +19,8 @@ from lionelmssq.masses import (
     build_breakage_dict,
     initialize_nucleotide_df,
 )
+
+rt = get_mono()
 
 _TESTCASES = importlib.resources.files("tests") / "testcases"
 

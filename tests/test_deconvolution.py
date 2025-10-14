@@ -1,4 +1,7 @@
 import pytest
+from clr_loader import get_mono
+
+rt = get_mono()
 
 from lionelmssq.deconvolution import set_averagine
 
