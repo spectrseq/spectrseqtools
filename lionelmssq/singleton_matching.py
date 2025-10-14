@@ -182,7 +182,7 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
         lambda x: pl.DataFrame(
             {
                 "nucleoside": x["nucleoside"][0],
-                "cluster_score": cluster_score(x["scan_time"]),
+                "cluster_score": calculate_cluster_score(x["scan_time"]),
                 "count": len(x["nucleoside"]),
             }
         )
@@ -196,37 +196,42 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
     ).sort("count", descending=True)
 
 
-def cluster_score(scantimes):
+def calculate_cluster_score(scan_times: pl.Series) -> float:
     """
-    Provide a score on how clustered each of the scan peaks by scan time, using DBSCAN and Silhouette scores
+    Determine score measuring how clustered each scan peaks is.
+
+    By scan time, use DBSCAN and Silhouette score to evaluate peak clustering.
 
     Parameters
     ----------
-    scantimes : polars Series
-        Series containing scan times
+    scan_times : polars.Series
+        Scan times.
 
     Returns
     -------
     score : float
-        Silhouette score for the DBSCAN cluster of scan times
+        Silhouette score for the DBSCAN cluster of scan times.
     """
-
-    scan_arr = scantimes.sort().to_numpy()
+    # Transform series to numpy array
+    scan_times = scan_times.sort().to_numpy()
 
     # Cluster scan times using 1D DBSCAN
-    dbs = DBSCAN1D(eps=0.5, min_samples=10)
-    clusters = dbs.fit_predict(scan_arr)
+    clusters = DBSCAN1D(eps=0.5, min_samples=10).fit_predict(scan_times)
 
-    X = scan_arr.reshape(-1, 1)
-    if len(set(clusters)) == 1:
-        # If there are only noise clusters (cluster = -1), set score to -1.0
-        if list(set(clusters))[0] == -1:
-            score = -1.0
-        # If there is only one cluster, set score to 0.0
-        else:
-            score = 0.0
-    else:
-        # Compute silhouette score otherwise
-        score = silhouette_score(X, clusters)
+    # Flatten array containing scan times
+    scan_times = scan_times.reshape(-1, 1)
 
-    return score
+    # Raise error if no cluster was found
+    if len(set(clusters)) == 0:
+        raise NotImplementedError("No cluster was found. This should not be possible.")
+
+    # Return silhouette score if multiple clusters were found
+    if len(set(clusters)) > 1:
+        return silhouette_score(scan_times, clusters)
+
+    # Return minimum score if only noise was found, i.e. cluster == -1
+    if list(set(clusters))[0] == -1:
+        return -1.0
+
+    # Return neutral score if only one (non-noisy) cluster was found
+    return 0.0
