@@ -24,9 +24,9 @@ COL_TYPES_RAW = {
 }
 
 
-def match_singletons(file_path: str) -> pl.DataFrame:
+def identify_singletons(file_path: str) -> pl.DataFrame:
     """
-    Match observed m/z from RAW file to theoretical m/z from reference mass table.
+    Determine singleton candidates from MS2 scans in ThermoFisher RAW file.
 
     Parameters
     ----------
@@ -35,27 +35,25 @@ def match_singletons(file_path: str) -> pl.DataFrame:
 
     Returns
     -------
-    df_matches : polars.DataFrame
-        Dataframe containing candidate nucleosides obtained by matching singletons.
+    polars.DataFrame
+        Dataframe containing singleton candidates obtained by matching m/z data.
     """
-    # Initialize the first scan from an iterator of the RAW file
+    # Initialize iterator for RAW file
     raw_file_read = initialize_raw_file_iterator(file_path=file_path)
-    bunch = next(raw_file_read)
 
     peak_list = []
     for _ in tqdm.tqdm(
         range(len(raw_file_read) - 1), desc="Extract m/z data from MS2 scans"
     ):
-        # Only consider MS2 scans
-        if bunch.ms_level == 2:
-            # Centroid the scans
-            bunch.pick_peaks()
-
-            # Extract and generate dataframe of m/z for each scan (without deisotoping)
-            peak_list += process_scan(bunch)
-
-        # Move on to the next scan
+        # Select next scan
         bunch = next(raw_file_read)
+
+        # Skip scan if it is no MS2 scan
+        if bunch.ms_level != 2:
+            continue
+
+        # Extract raw peaks from scan (without deisotoping)
+        peak_list += process_scan(bunch)
 
     return select_singletons_from_peaks(peak_list=peak_list)
 
@@ -84,6 +82,9 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
         List containing raw peak data.
 
     """
+    # Convert scan to centroid data
+    bunch.pick_peaks()
+
     # Return None if scan does not contain any peaks
     if len(bunch.peaks) <= 0:
         return []

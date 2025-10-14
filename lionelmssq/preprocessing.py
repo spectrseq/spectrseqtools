@@ -2,7 +2,7 @@ import polars as pl
 from typing import Tuple
 
 from lionelmssq.deconvolution import deconvolute
-from lionelmssq.singleton_matching import match_singletons
+from lionelmssq.singleton_matching import identify_singletons
 
 
 def preprocess(
@@ -43,7 +43,7 @@ def preprocess(
     )
 
     # Identify singletons
-    singletons = match_singletons(file_path=str(file_path))
+    singletons = identify_singletons(file_path=str(file_path))
 
     # Update meta parameters (if needed)
     meta_params.setdefault("identity", file_path.stem)

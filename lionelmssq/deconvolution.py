@@ -156,7 +156,7 @@ def set_averagine(backbone: str) -> dict:
 
 def deconvolute(file_path: str, params: dict) -> pl.DataFrame:
     """
-    Deconvolute/deisotope peaks in MS2 scans from ThermoFisher RAW files.
+    Deconvolute/deisotope peaks in MS2 scans from ThermoFisher RAW file.
 
     Parameters
     ----------
