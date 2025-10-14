@@ -57,64 +57,7 @@ def match_singletons(file_path: str) -> pl.DataFrame:
         # Move on to the next scan
         bunch = next(raw_file_read)
 
-    # Build dataframe from peak list
-    df_mz = pl.DataFrame(
-        data=np.array(
-            [[peak.__dict__[key] for key in COL_TYPES_RAW.keys()] for peak in peak_list]
-        ),
-        schema=COL_TYPES_RAW,
-    )
-
-    df_mz = df_mz.sort("mz").with_columns(
-        (1e6 * abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
-        .fill_null(0)
-        .fill_nan(0)
-        .gt(PPM_TOLERANCE)
-        .cum_sum()
-        .alias("ppm_group")
-    )
-
-    # Match m/z to theoretical m/z from the reference table
-    df_mz = df_mz.sort("mz").join_asof(
-        MZ_MASSES.sort("theoretical_mz"),
-        left_on="mz",
-        right_on="theoretical_mz",
-        strategy="nearest",
-    )
-
-    # Compute mass error between observed and theoretical m/z
-    df_mz = (
-        df_mz.sort("mz")
-        .with_columns(
-            (1e6 * abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
-            .fill_null(0)
-            .fill_nan(0)
-            .lt(PPM_TOLERANCE)
-            .alias("is_match")
-        )
-        .filter(pl.col("is_match"))
-        .sort(["nucleoside", "scan_time"])
-    )
-
-    df_mz_agg = df_mz.group_by("nucleoside").map_groups(
-        lambda x: pl.DataFrame(
-            {
-                "nucleoside": x["nucleoside"][0],
-                "cluster_score": cluster_score(x["scan_time"]),
-                "count": len(x["nucleoside"]),
-            }
-        )
-    )
-
-    # Take mass error that is less than PPM_TOLERANCE and flatten list of candidate singletons
-    df_matches = (
-        df_mz_agg.filter(pl.col("cluster_score") >= 0)
-        .select(["nucleoside", "count", "cluster_score"])
-        .sort("count", descending=True)
-        # .explode("nucleoside")
-    )
-
-    return df_matches
+    return select_singletons_from_peaks(peak_list=peak_list)
 
 
 @dataclass
@@ -173,6 +116,83 @@ def process_scan(bunch: ms_ditp.data_source.Scan) -> List[RawPeak]:
                 )
             )
     return peak_list
+
+
+def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
+    """
+    Select candidate singletons based on raw peaks.
+
+    Build dataframe of raw peaks, match theoretical and observed mz,
+    cluster them, and filter the candidates based on their cluster score.
+
+    Parameters
+    ----------
+    peak_list : List[RawPeak]
+        List containing raw peak data.
+
+    Returns
+    -------
+    peak_df : polars.DataFrame
+        Dataframe containing singleton candidates (name, score, and count).
+
+    """
+    # Build dataframe from peak list
+    peak_df = pl.DataFrame(
+        data=np.array(
+            [[peak.__dict__[key] for key in COL_TYPES_RAW.keys()] for peak in peak_list]
+        ),
+        schema=COL_TYPES_RAW,
+    )
+
+    # Cluster peaks together when m/z is within PPM tolerance of each other
+    peak_df = peak_df.sort("mz").with_columns(
+        (abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
+        .fill_null(0)
+        .fill_nan(0)
+        .gt(PPM_TOLERANCE / 1e6)
+        .cum_sum()
+        .alias("ppm_group")
+    )
+
+    # Match observed m/z to theoretical m/z from the reference table
+    peak_df = peak_df.sort("mz").join_asof(
+        MZ_MASSES.sort("theoretical_mz"),
+        left_on="mz",
+        right_on="theoretical_mz",
+        strategy="nearest",
+    )
+
+    # Compute mass error between observed and theoretical m/z
+    peak_df = (
+        peak_df.sort("mz")
+        .with_columns(
+            (abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
+            .fill_null(0)
+            .fill_nan(0)
+            .lt(PPM_TOLERANCE / 1e6)
+            .alias("is_match")
+        )
+        .filter(pl.col("is_match"))
+        .sort(["nucleoside", "scan_time"])
+    )
+
+    # Map representative nucleoside, cluster score, and count to each nucleoside group
+    peak_df = peak_df.group_by("nucleoside").map_groups(
+        lambda x: pl.DataFrame(
+            {
+                "nucleoside": x["nucleoside"][0],
+                "cluster_score": cluster_score(x["scan_time"]),
+                "count": len(x["nucleoside"]),
+            }
+        )
+    )
+
+    # Filter candidate singletons by cluster score
+    return (
+        peak_df.filter(pl.col("cluster_score") >= 0).select(
+            ["nucleoside", "count", "cluster_score"]
+        )
+    ).sort("count", descending=True)
 
 
 def cluster_score(scantimes):
