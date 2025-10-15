@@ -12,7 +12,11 @@ authors = [
 readme = "README.md"
 license = "GPL-3.0-only"
 requires-python=">=3.12,<3.14"
-# TODO we have to clarify the license situation!!!
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
 
 dependencies = [
     "polars >=1.9.0,<2.0",
