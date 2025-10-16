@@ -3,7 +3,6 @@ name = "lionelmssq"
 version = "0.1.0"
 description = ""
 authors = [
-    # TODO add all the other authors
     { name = "Laura Christine Kuehle", email = "laura.kuehle@mpi-dortmund.mpg.de" },
     { name = "Juan Antonio Magalang", email = "juan.magalang@mpi-dortmund.mpg.de" },
     { name = "Moshir Harsh", email = "btemoshir@gmail.com" },

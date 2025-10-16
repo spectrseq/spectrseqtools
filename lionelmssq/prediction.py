@@ -47,9 +47,6 @@ class Predictor:
         )
         print(len(fragments))
 
-        # TODO: get rid of the requirement to pass the length of the sequence
-        #  and instead infer it from the fragments
-
         fragments = fragments.with_columns(
             pl.lit(0, dtype=pl.Int64).alias("min_end"),
             pl.lit(-1, dtype=pl.Int64).alias("max_end"),
