@@ -4,8 +4,8 @@ version = "0.1.0"
 description = ""
 authors = [
     # TODO add all the other authors
-    { name = "Laura Kuehle", email = "laura.kuehle@mpi-dortmund.mpg.de" },
-    { name = "Juan Antonio Magalang" }, # TODO add Juans mpi email
+    { name = "Laura Christine Kuehle", email = "laura.kuehle@mpi-dortmund.mpg.de" },
+    { name = "Juan Antonio Magalang", email = "juan.magalang@mpi-dortmund.mpg.de" },
     { name = "Moshir Harsh", email = "btemoshir@gmail.com" },
     { name = "Johannes Koester", email = "johannes.koester@uni-due.de" }
 ]
