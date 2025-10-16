@@ -13,8 +13,14 @@ from lionelmssq.masses import EXPLANATION_MASSES
 
 rt = get_mono()
 
-PPM_TOLERANCE = 10
+PREPROCESS_TOL = 10e-6
 THEORETICAL_BOUNDARY_FACTOR = 2
+MIN_MZ = EXPLANATION_MASSES["theoretical_mz"].min() * (
+    1 - THEORETICAL_BOUNDARY_FACTOR * PREPROCESS_TOL
+)
+MAX_MZ = EXPLANATION_MASSES["theoretical_mz"].max() * (
+    1 + THEORETICAL_BOUNDARY_FACTOR * PREPROCESS_TOL
+)
 COL_TYPES_RAW = {
     "scan_id": pl.Int32,
     "scan_time": pl.Float64,
@@ -93,20 +99,12 @@ def process_scan(scan: ms_ditp.data_source.Scan) -> List[RawPeak]:
     scan_time = scan.scan_time
     scan_id = int(scan.scan_id.split("scan=")[-1])
 
-    # Calculate theoretical bounds, i.e. accepted m/z range
-    min_mz = EXPLANATION_MASSES["theoretical_mz"].min() * (
-        1 - THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
-    )
-    max_mz = EXPLANATION_MASSES["theoretical_mz"].max() * (
-        1 + THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
-    )
-
     peak_list = []
     for idx in range(len(scan.peaks)):
         mz = scan.peaks[idx].mz
 
         # Only consider peaks with mass within theoretical bounds
-        if min_mz <= mz <= max_mz:
+        if MIN_MZ <= mz <= MAX_MZ:
             peak_list.append(
                 RawPeak(
                     scan_id=scan_id,
@@ -160,7 +158,7 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
             (abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
             .fill_null(0)
             .fill_nan(0)
-            .lt(PPM_TOLERANCE / 1e6)
+            .lt(PREPROCESS_TOL)
             .alias("is_match")
         )
         .filter(pl.col("is_match"))

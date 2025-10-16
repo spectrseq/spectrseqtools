@@ -11,7 +11,7 @@ from lionelmssq.common import initialize_raw_file_iterator
 
 rt = get_mono()
 
-PPM_TOLERANCE = 10
+PREPROCESS_TOL = 10e-6
 # TODO: Estimate the default value from sequence length (IMP: Should be
 #  large enough to cover the charge states of the precursors!
 DEFAULT_CHARGE_VALUE = 30
@@ -363,7 +363,7 @@ def aggregate_peaks_into_fragments(peak_list: List[DeisotopedPeak]) -> pl.DataFr
         )
         .fill_null(0)
         .fill_nan(0)
-        .gt(PPM_TOLERANCE / 1e6)
+        .gt(PREPROCESS_TOL)
         .cum_sum()
         .alias("ppm_group")
     )
