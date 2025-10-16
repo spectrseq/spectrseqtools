@@ -145,16 +145,6 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
         schema=COL_TYPES_RAW,
     )
 
-    # Cluster peaks together when m/z is within PPM tolerance of each other
-    peak_df = peak_df.sort("mz").with_columns(
-        (abs(pl.col("mz").shift(1) - pl.col("mz")) / pl.col("mz").shift(1))
-        .fill_null(0)
-        .fill_nan(0)
-        .gt(PPM_TOLERANCE / 1e6)
-        .cum_sum()
-        .alias("ppm_group")
-    )
-
     # Match observed m/z to theoretical m/z from the reference table
     peak_df = peak_df.sort("mz").join_asof(
         EXPLANATION_MASSES.sort("theoretical_mz"),
