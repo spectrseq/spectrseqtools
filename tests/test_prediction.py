@@ -80,9 +80,7 @@ def test_testcase(testcase):
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
 
-        _, _, unique_masses, explanation_masses = initialize_nucleotide_df(
-            reduce_set=False
-        )
+        explanation_masses = initialize_nucleotide_df(reduce_set=False)
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_matching_threshold(
@@ -153,9 +151,7 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
-        _, _, unique_masses, explanation_masses = initialize_nucleotide_df(
-            reduce_set=True
-        )
+        explanation_masses = initialize_nucleotide_df(reduce_set=True)
 
         seq_info = SequenceInformation(
             max_len=int(

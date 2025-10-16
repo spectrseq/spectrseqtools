@@ -9,7 +9,7 @@ from sklearn.metrics import silhouette_score
 from typing import List
 
 from lionelmssq.common import initialize_raw_file_iterator
-from lionelmssq.masses import MZ_MASSES
+from lionelmssq.masses import EXPLANATION_MASSES
 
 rt = get_mono()
 
@@ -94,10 +94,10 @@ def process_scan(scan: ms_ditp.data_source.Scan) -> List[RawPeak]:
     scan_id = int(scan.scan_id.split("scan=")[-1])
 
     # Calculate theoretical bounds, i.e. accepted m/z range
-    min_mz = MZ_MASSES["theoretical_mz"].min() * (
+    min_mz = EXPLANATION_MASSES["theoretical_mz"].min() * (
         1 - THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
     )
-    max_mz = MZ_MASSES["theoretical_mz"].max() * (
+    max_mz = EXPLANATION_MASSES["theoretical_mz"].max() * (
         1 + THEORETICAL_BOUNDARY_FACTOR * PPM_TOLERANCE / 1e6
     )
 
@@ -157,7 +157,7 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
 
     # Match observed m/z to theoretical m/z from the reference table
     peak_df = peak_df.sort("mz").join_asof(
-        MZ_MASSES.sort("theoretical_mz"),
+        EXPLANATION_MASSES.sort("theoretical_mz"),
         left_on="mz",
         right_on="theoretical_mz",
         strategy="nearest",
@@ -178,12 +178,12 @@ def select_singletons_from_peaks(peak_list: List[RawPeak]) -> pl.DataFrame:
     )
 
     # Map representative nucleoside, cluster score, and count to each nucleoside group
-    peak_df = peak_df.group_by("nucleoside").map_groups(
+    peak_df = peak_df.group_by("nucleoside_list").map_groups(
         lambda x: pl.DataFrame(
             {
-                "nucleoside": x["nucleoside"][0],
+                "nucleoside": x["nucleoside_list"][0],
                 "cluster_score": calculate_cluster_score(x["scan_time"]),
-                "count": len(x["nucleoside"]),
+                "count": len(x["nucleoside_list"]),
             }
         )
     )

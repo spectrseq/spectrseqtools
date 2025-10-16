@@ -1,6 +1,6 @@
 import polars as pl
 
-from lionelmssq.masses import UNIQUE_MASSES
+from lionelmssq.masses import EXPLANATION_MASSES as UNIQUE_MASSES
 
 
 def estimate_MS_error_matching_threshold(
