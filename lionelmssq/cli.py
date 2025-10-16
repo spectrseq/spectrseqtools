@@ -1,4 +1,8 @@
+import polars as pl
+import yaml
+import os
 from pathlib import Path
+from tap import Tap
 from typing import Literal
 
 from lionelmssq.fragment_classification import classify_fragments
@@ -11,9 +15,7 @@ from lionelmssq.masses import (
     initialize_nucleotide_df,
 )
 from lionelmssq.prediction import Predictor
-from tap import Tap
-import polars as pl
-import yaml
+from lionelmssq.preprocessing import preprocess
 
 
 class Settings(Tap):
@@ -41,14 +43,43 @@ def main():
         "msg": False,
     }
 
-    # Read fragments
-    fragments = pl.read_csv(settings.fragments, separator="\t")
-
     # Read additional parameter from meta file
     fragment_dir = settings.fragments.parent
     file_prefix = settings.fragments.stem
     with open(fragment_dir / f"{file_prefix}.meta.yaml", "r") as f:
         meta = yaml.safe_load(f)
+
+    file_name = fragment_dir / f"{file_prefix}.raw"
+    if os.path.isfile(file_name):
+        print("Preprocessing raw data...")
+        # Preprocess raw data
+        fragments, singletons, meta = preprocess(
+            file_path=file_name,
+            deconvolution_params={},
+            meta_params=meta,
+        )
+        # Save preprocessed fragments
+        fragments.write_csv(
+            fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
+        )
+
+        # Save singletons detected from raw data
+        singletons.write_csv(
+            fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
+        )
+
+        # Save updated meta data
+        with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
+            yaml.dump(meta, f)
+
+        print("Preprocessing completed!\n")
+    else:
+        print("Raw file not found. Proceeding with preprocessed data.")
+        # Read already preprocessed fragments
+        fragments = pl.read_csv(settings.fragments, separator="\t")
+        singletons = None
+
+    print(singletons)
 
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
@@ -62,9 +93,7 @@ def main():
         reduce_table = True
         reduce_set = False
 
-    _, unique_masses, explanation_masses = initialize_nucleotide_df(
-        reduce_set=reduce_set
-    )
+    explanation_masses = initialize_nucleotide_df(reduce_set=reduce_set)
     threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
 
     # Build breakage dict
@@ -126,10 +155,10 @@ def main():
         solver_params=solver_params,
     )
 
-    # save fragment predictions
+    # Save fragment predictions
     prediction.fragments.write_csv(settings.fragment_predictions, separator="\t")
 
-    # save predicted sequence
+    # Save predicted sequence
     with open(settings.sequence_prediction, "w") as f:
         print(f">{settings.sequence_name}", file=f)
         print("".join(prediction.sequence), file=f)

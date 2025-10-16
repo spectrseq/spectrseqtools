@@ -8,7 +8,6 @@ from lionelmssq.mass_explanation import (
 from lionelmssq.masses import (
     EXPLANATION_MASSES,
     PHOSPHATE_LINK_MASS,
-    MASSES,
     TOLERANCE,
 )
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
@@ -19,7 +18,7 @@ def get_seq_weight(seq: tuple) -> float:
     seq_df = seq_df.with_columns(
         pl.col("name")
         .map_elements(
-            lambda x: MASSES.filter(pl.col("nucleoside") == x)
+            lambda x: EXPLANATION_MASSES.filter(pl.col("nucleoside") == x)
             .get_column("monoisotopic_mass")
             .to_list()[0],
             return_dtype=pl.Float64,

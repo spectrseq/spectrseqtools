@@ -13,38 +13,29 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.12"
-    - uses: Gr1N/setup-poetry@v8
-    - run: poetry install
-    - name: Test with pytest
-      run: |
-        poetry run ruff format --check
+      - uses: actions/checkout@v5
+
+      - uses: prefix-dev/setup-pixi@v0
+
+      - run: |
+          pixi run format --check
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.12"
-    - uses: Gr1N/setup-poetry@v8
-    - run: poetry install
-    - name: Test with pytest
-      run: |
-        poetry run ruff check
+      - uses: actions/checkout@v5
+
+      - uses: prefix-dev/setup-pixi@v0
+
+      - run: |
+          pixi run lint
 
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.12"
-    - uses: Gr1N/setup-poetry@v8
-    - run: poetry install
-    - name: Test with pytest
-      run: |
-        poetry run pytest -v
+      - uses: actions/checkout@v5
+
+      - uses: prefix-dev/setup-pixi@v0
+
+      - run: |
+          pixi run test -v

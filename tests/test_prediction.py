@@ -1,7 +1,9 @@
 import importlib.resources
 import os
-
+import polars as pl
+import yaml
 import pytest
+from clr_loader import get_mono
 
 from lionelmssq.cli import select_solver
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
@@ -9,10 +11,7 @@ from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
 from lionelmssq.plotting import plot_prediction
 from lionelmssq.fragment_classification import classify_fragments
-
-import polars as pl
-import yaml
-
+from lionelmssq.preprocessing import preprocess
 from lionelmssq.masses import (
     COMPRESSION_RATE,
     TOLERANCE,
@@ -20,6 +19,8 @@ from lionelmssq.masses import (
     build_breakage_dict,
     initialize_nucleotide_df,
 )
+
+rt = get_mono()
 
 _TESTCASES = importlib.resources.files("tests") / "testcases"
 
@@ -79,9 +80,7 @@ def test_testcase(testcase):
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
 
-        _, unique_masses, explanation_masses = initialize_nucleotide_df(
-            reduce_set=False
-        )
+        explanation_masses = initialize_nucleotide_df(reduce_set=False)
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_matching_threshold(
@@ -120,7 +119,28 @@ def test_testcase(testcase):
     else:
         simulation = False
 
-        fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
+        file_name = base_path / "fragments.raw"
+        if os.path.isfile(file_name):
+            # Preprocess raw data
+            fragments, singletons, meta = preprocess(
+                file_path=file_name,
+                deconvolution_params={},
+                meta_params=meta,
+            )
+
+            # Save preprocessed fragments
+            fragments.write_csv(
+                base_path / "fragments.preprocessed.tsv", separator="\t"
+            )
+
+            # Save singletons detected from raw data
+            singletons.write_csv(base_path / "fragments.singletons.tsv", separator="\t")
+        else:
+            # Read already preprocessed fragments
+            fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
+            singletons = None
+
+        print(singletons)
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_MATCHING_THRESHOLD(
@@ -131,7 +151,7 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
-        _, unique_masses, explanation_masses = initialize_nucleotide_df(reduce_set=True)
+        explanation_masses = initialize_nucleotide_df(reduce_set=True)
 
         seq_info = SequenceInformation(
             max_len=int(
