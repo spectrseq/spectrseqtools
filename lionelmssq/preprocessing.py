@@ -70,6 +70,11 @@ def select_sequence_mass(fragments: pl.DataFrame) -> float:
     float
         Sequence mass estimation.
 
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
+
     """
     return (
         fragments.filter(pl.col("is_precursor_deisotoped"))

@@ -111,6 +111,11 @@ def set_averagine(backbone: str) -> dict:
     averagine_composition : dict
         Dictionary containing average elemental composition.
 
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
+
     """
     # Build dict with elemental compositions from file
     bases = pl.read_csv(
@@ -222,6 +227,11 @@ def deconvolute_scan(
     peak_list : List[DeisotopedPeak]
         List containing deconvoluted peak data.
 
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
+
     """
     # Convert scan to centroid data
     scan.pick_peaks()
@@ -295,6 +305,11 @@ def select_charge_range(scan: ms_ditp.data_source.Scan) -> Tuple[int, int]:
     max_charge : int
         Maximum accepted charge value.
 
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
+
     """
     # Select charge (or use default if not given)
     charge = scan.precursor_information.charge
@@ -319,6 +334,11 @@ def select_min_intensity(scan: ms_ditp.data_source.Scan) -> float:
     float
         Minimum intensity value.
 
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
+
     """
     # Return minimum intensity found in peak set of scan
     return min(p.intensity for p in scan.peak_set)
@@ -342,6 +362,11 @@ def aggregate_peaks_into_fragments(peak_list: List[DeisotopedPeak]) -> pl.DataFr
     -------
     peak_df : polars.DataFrame
         Dataframe containing fragment monoisotopic masses and intensities.
+
+    Notes
+    -----
+    This function is inspired by https://github.com/koesterlab/oliglow,
+    originally implemented by Moshir Harsh (btemoshir@gmail.com).
 
     """
     # Build dataframe from peak list
