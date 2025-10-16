@@ -242,8 +242,8 @@ def deconvolute_scan(
     if len(peak_set) <= 0:
         return []
 
-    # Obtain scan time (in min) and scan ID
-    scan_time = scan.scan_time * 60
+    # Obtain scan time and scan ID
+    scan_time = scan.scan_time
     scan_id = int(scan.scan_id.split("scan=")[-1])
 
     # Calculate m/z of precursor and accepted m/z range
