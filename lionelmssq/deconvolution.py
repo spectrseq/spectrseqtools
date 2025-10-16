@@ -88,9 +88,6 @@ def set_scan_independent_params(params: dict) -> dict:
     # Set error tolerance for matching experimental and theoretical peaks
     params.setdefault("error_tol", 2e-5)
 
-    # TODO: Play with "truncate_after"; explore "incremental_truncation";
-    #  perhaps also reduce the "min_score", such that multiple peaks
-    #  with problems are coalesced into one
     # Set percentage of included isotopic pattern (very sensitive, see discussion in ms_deisotope docs)
     params.setdefault("truncate_after", 0.9)
 
@@ -238,13 +235,13 @@ def deconvolute_scan(
 
     # Deconvolute/deisotope with ms_deisotope
     peak_set = ms_ditp.deconvolute_peaks(
-        scan,
+        peaklist=scan,
         charge_range=params.charge_range
         if params.charge_range is not None
-        else select_charge_range(scan),
-        minimum_intensity=params.minimum_intensity
-        if params.minimum_intensity is not None
-        else select_min_intensity(scan),
+        else select_charge_range(scan=scan),
+        minimum_intensity=select_min_intensity(
+            scan=scan, min_intensity=params.minimum_intensity
+        ),
         **params.scan_independent_params,
     ).peak_set
 
@@ -320,7 +317,7 @@ def select_charge_range(scan: ms_ditp.data_source.Scan) -> Tuple[int, int]:
     return scan.polarity, charge * scan.polarity
 
 
-def select_min_intensity(scan: ms_ditp.data_source.Scan) -> float:
+def select_min_intensity(scan: ms_ditp.data_source.Scan, min_intensity: float) -> float:
     """
     Select minimum intensity value below which peaks are ignored.
 
@@ -328,6 +325,8 @@ def select_min_intensity(scan: ms_ditp.data_source.Scan) -> float:
     ----------
     scan : ms_deisotope.data_source.Scan
         ThermoFisher scan.
+    min_intensity : float
+        Minimum intensity value set by user.
 
     Returns
     -------
@@ -340,9 +339,12 @@ def select_min_intensity(scan: ms_ditp.data_source.Scan) -> float:
     originally implemented by Moshir Harsh (btemoshir@gmail.com).
 
     """
-    # Return minimum intensity found in peak set of scan
-    return min(p.intensity for p in scan.peak_set)
-    # TODO: Let the user define a threshold and take maximum of it and the above
+    # If the user defined no minimum intensity, set it to -infinity
+    if min_intensity is None:
+        min_intensity = -np.inf
+
+    # Return maximum of intensity set by user and found in scan peak set
+    return max(min_intensity, min(peak.intensity for peak in scan.peak_set))
 
 
 def aggregate_peaks_into_fragments(peak_list: List[DeisotopedPeak]) -> pl.DataFrame:
