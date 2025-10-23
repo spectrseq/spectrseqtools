@@ -145,22 +145,13 @@ class Predictor:
 
         return Prediction(*lp_instance.evaluate(solver_params))
 
-    def _reduce_alphabet(self, nucleotide_list: Set[str]) -> pl.DataFrame:
-        reduced = self.explanation_masses.filter(
-            pl.col("nucleoside").is_in(nucleotide_list)
-        )
-        reduced = reduced.with_columns(
-            (pl.col("monoisotopic_mass") + PHOSPHATE_LINK_MASS).alias(
-                "standard_unit_mass"
-            )
-        )
-        print("Nucleosides considered for fitting after alphabet reduction:", reduced)
-
+    def _reduce_alphabet(self, nucleotide_list: Set[str]):
         self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
             nucleotide_list
         )
 
-        return reduced
+        print("Nucleosides considered for fitting after alphabet reduction:")
+        self.dp_table.print_masses()
 
     def filter_with_lp(
         self,

@@ -7,7 +7,7 @@ import pathlib
 import numpy as np
 import os
 
-from lionelmssq.masses import UNMODIFIED_BASES
+from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 
 # Set OS-independent cache directory for DP tables
@@ -122,6 +122,24 @@ class DynamicProgrammingTable:
 
         # Update nucleotide list
         self.masses = new_masses
+
+    def print_masses(self):
+        mass_names = []
+        for mass in self.masses:
+            mass_names += mass.names
+        masses = EXPLANATION_MASSES.sort("monoisotopic_mass").filter(
+            pl.col("nucleoside").is_in(mass_names)
+        )
+
+        print(
+            masses.replace_column(
+                masses.get_column_index("modification_rate"),
+                pl.Series(
+                    "modification_rate",
+                    [mass.modification_rate for mass in self.masses[1:]],
+                ),
+            )
+        )
 
 
 def set_table_path(reduce_table, reduce_set, precision, compression_rate):
