@@ -33,16 +33,17 @@ def get_singleton_set_item(set_: Set[Any]) -> Any:
 
 
 class LinearProgramInstance:
-    def __init__(self, fragments, nucleosides, dp_table, skeleton_seq):
+    def __init__(self, fragments, dp_table, skeleton_seq):
         # i = 1,...,n: positions in the sequence
         # j = 1,...,m: fragments
         # b = 1,...,k: (modified) bases
         self.fragments = fragments
         self.seq_len = len(skeleton_seq)
-        self.nucleoside_names = nucleosides.get_column("nucleoside").to_list()
-        self.nucleoside_masses = dict(
-            nucleosides.select(["nucleoside", "standard_unit_mass"]).iter_rows()
-        )
+        self.nucleoside_names = [mass.names[0] for mass in dp_table.masses[1:]]
+        self.nucleoside_masses = {
+            mass.names[0]: mass.mass * dp_table.precision
+            for mass in dp_table.masses[1:]
+        }
 
         fragment_masses = self.fragments.get_column("standard_unit_mass").to_list()
         valid_fragment_range = list(range(len(fragment_masses)))

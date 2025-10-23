@@ -88,7 +88,7 @@ class Predictor:
 
         # Reduce nucleotide alphabet based on skeleton
         nucleotides = {nuc for skeleton_pos in skeleton_seq for nuc in skeleton_pos}
-        masses = self._reduce_alphabet(nucleotides)
+        _ = self._reduce_alphabet(nucleotides)
 
         # Remove all "internal" fragment duplicates that are truly terminal fragments
         frag_internal = frag_internal.filter(
@@ -112,7 +112,6 @@ class Predictor:
         )
         fragments = self.filter_with_lp(
             fragments=fragments,
-            masses=masses,
             skeleton_seq=skeleton_seq,
             solver_params=solver_params,
         )
@@ -140,7 +139,6 @@ class Predictor:
 
         lp_instance = LinearProgramInstance(
             fragments=fragments,
-            nucleosides=masses,
             dp_table=self.dp_table,
             skeleton_seq=skeleton_seq,
         )
@@ -167,7 +165,6 @@ class Predictor:
     def filter_with_lp(
         self,
         fragments: pl.DataFrame,
-        masses: list,
         skeleton_seq: list,
         solver_params: dict,
     ) -> pl.DataFrame:
@@ -182,7 +179,6 @@ class Predictor:
             # Initialize LP instance for a singular fragment
             filter_instance = LinearProgramInstance(
                 fragments=fragments[idx],
-                nucleosides=masses,
                 dp_table=self.dp_table,
                 skeleton_seq=skeleton_seq,
             )

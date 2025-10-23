@@ -71,16 +71,20 @@ class DynamicProgrammingTable:
         self.precision = precision
         self.seq = seq
         self.masses = initialize_nucleotide_masses(nucleotide_df)
-        self.table = load_dp_table(
-            table_path=set_table_path(
-                reduced_table, reduced_set, precision, compression_rate
-            ),
-            reduce_table=reduced_table,
-            integer_masses=[mass.mass for mass in self.masses],
-        )
+        self.table = None
 
         # Adapt individual modification rates to universal one
         self._adapt_individual_modification_rates_by_universal_one()
+
+        # Initialize table form file (for no alphabet reduction)
+        if self.table is None:
+            self.table = load_dp_table(
+                table_path=set_table_path(
+                    reduced_table, reduced_set, precision, compression_rate
+                ),
+                reduce_table=reduced_table,
+                integer_masses=[mass.mass for mass in self.masses],
+            )
 
     def _adapt_individual_modification_rates_by_universal_one(self):
         for nucleotide_mass in self.masses:
@@ -88,6 +92,7 @@ class DynamicProgrammingTable:
                 continue
             if nucleotide_mass.modification_rate > self.seq.modification_rate:
                 nucleotide_mass.modification_rate = self.seq.modification_rate
+        self._reduce_nucleotide_list()
 
     def adapt_individual_modification_rates_by_alphabet_reduction(self, alphabet):
         for nucleotide_mass in self.masses:
@@ -95,6 +100,28 @@ class DynamicProgrammingTable:
                 continue
             if all(name not in alphabet for name in nucleotide_mass.names):
                 nucleotide_mass.modification_rate = 0.0
+        self._reduce_nucleotide_list()
+
+    def _reduce_nucleotide_list(self):
+        new_masses = [
+            mass
+            for mass in self.masses
+            if mass.mass == 0.0 or mass.modification_rate > 0.0
+        ]
+
+        # Return if nucleotide list was not reduced
+        if len(new_masses) == len(self.masses):
+            return
+
+        # Recompute table
+        self.table = set_up_bit_table(
+            integer_masses=[mass.mass for mass in new_masses],
+            max_mass=max([mass.mass for mass in new_masses]) * 35,
+            compression_rate=self.compression_per_cell,
+        )
+
+        # Update nucleotide list
+        self.masses = new_masses
 
 
 def set_table_path(reduce_table, reduce_set, precision, compression_rate):
