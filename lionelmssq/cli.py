@@ -11,6 +11,7 @@ from lionelmssq.masses import (
     COMPRESSION_RATE,
     MATCHING_THRESHOLD,
     TOLERANCE,
+    UNMODIFIED_BASES,
     build_breakage_dict,
     initialize_nucleotide_df,
 )
@@ -86,14 +87,29 @@ def main():
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
     simulation = False
-    reduce_table = False
-    reduce_set = True
     if "observed_mass" in fragments.columns:
         simulation = True
-        reduce_table = True
-        reduce_set = False
 
-    explanation_masses = initialize_nucleotide_df(reduce_set=reduce_set)
+    explanation_masses = initialize_nucleotide_df(reduce_set=False)
+
+    print(explanation_masses)
+
+    explanation_masses = explanation_masses.with_columns(
+        pl.when(
+            pl.col("nucleoside").is_in(singletons.get_column("nucleoside").to_list())
+        )
+        .then(pl.col("modification_rate"))
+        .otherwise(pl.lit(0.0))
+        .alias("modification_rate")
+    )
+
+    explanation_masses = explanation_masses.with_columns(
+        pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
+        .then(pl.col("modification_rate"))
+        .otherwise(pl.lit(1.0))
+        .alias("modification_rate")
+    )
+
     threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
 
     # Build breakage dict
@@ -120,7 +136,9 @@ def main():
             / TOLERANCE
             / min(
                 pl.Series(
-                    explanation_masses.select("tolerated_integer_masses")
+                    explanation_masses.filter(pl.col("modification_rate") > 0.0).select(
+                        "tolerated_integer_masses"
+                    )
                 ).to_list()
             )
         ),
@@ -135,8 +153,8 @@ def main():
         tolerance=threshold,
         precision=TOLERANCE,
         seq=seq_info,
-        reduced_table=reduce_table,
-        reduced_set=reduce_set,
+        reduced_table=False,
+        reduced_set=False,
     )
 
     fragments = classify_fragments(

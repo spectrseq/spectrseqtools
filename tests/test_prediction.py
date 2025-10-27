@@ -16,6 +16,7 @@ from lionelmssq.masses import (
     COMPRESSION_RATE,
     TOLERANCE,
     MATCHING_THRESHOLD,
+    UNMODIFIED_BASES,
     build_breakage_dict,
     initialize_nucleotide_df,
 )
@@ -108,7 +109,7 @@ def test_testcase(testcase):
 
         dp_table = DynamicProgrammingTable(
             explanation_masses,
-            reduced_table=True,
+            reduced_table=False,
             reduced_set=False,
             compression_rate=COMPRESSION_RATE,
             tolerance=matching_threshold,
@@ -151,7 +152,28 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
-        explanation_masses = initialize_nucleotide_df(reduce_set=True)
+        explanation_masses = initialize_nucleotide_df(reduce_set=False)
+
+        print("Original base alphabet:", explanation_masses)
+        print()
+
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(
+                pl.col("nucleoside").is_in(
+                    singletons.get_column("nucleoside").to_list()
+                )
+            )
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(0.0))
+            .alias("modification_rate")
+        )
+
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(1.0))
+            .alias("modification_rate")
+        )
 
         seq_info = SequenceInformation(
             max_len=int(
@@ -159,7 +181,9 @@ def test_testcase(testcase):
                 / TOLERANCE
                 / min(
                     pl.Series(
-                        explanation_masses.select("tolerated_integer_masses")
+                        explanation_masses.filter(
+                            pl.col("modification_rate") > 0.0
+                        ).select("tolerated_integer_masses")
                     ).to_list()
                 )
             ),
@@ -171,13 +195,17 @@ def test_testcase(testcase):
         dp_table = DynamicProgrammingTable(
             explanation_masses,
             reduced_table=False,
-            reduced_set=True,
+            reduced_set=False,
             compression_rate=COMPRESSION_RATE,
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
             seq=seq_info,
         )
+
+        print("Alphabet after singleton reduction:")
+        dp_table.print_masses()
+        print()
 
     fragments = classify_fragments(
         fragments,
