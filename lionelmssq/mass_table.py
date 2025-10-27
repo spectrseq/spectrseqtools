@@ -10,10 +10,12 @@ import os
 from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 
-# Set OS-independent cache directory for DP tables
+# Set OS-independent cache directory for DP table
 TABLE_DIR = user_cache_dir(
-    appname="lionelmssq/dp_table", version="1.1", ensure_exists=True
+    appname="lionelmssq/dp_table", version="1.2", ensure_exists=True
 )
+# Set maximum sequence length to be represented in DP table
+MAX_SEQ_LENGTH = 35
 
 
 @dataclass
@@ -63,8 +65,6 @@ class DynamicProgrammingTable:
         tolerance: float,
         precision: float,
         seq: SequenceInformation,
-        reduced_table: bool = False,
-        reduced_set: bool = False,
     ):
         self.compression_per_cell = compression_rate
         self.tolerance = tolerance
@@ -79,10 +79,7 @@ class DynamicProgrammingTable:
         # Initialize table form file (for no alphabet reduction)
         if self.table is None:
             self.table = load_dp_table(
-                table_path=set_table_path(
-                    reduced_table, reduced_set, precision, compression_rate
-                ),
-                reduce_table=reduced_table,
+                table_path=set_table_path(precision, compression_rate),
                 integer_masses=[mass.mass for mass in self.masses],
             )
 
@@ -116,7 +113,7 @@ class DynamicProgrammingTable:
         # Recompute table
         self.table = set_up_bit_table(
             integer_masses=[mass.mass for mass in new_masses],
-            max_mass=max([mass.mass for mass in new_masses]) * 35,
+            max_mass=max([mass.mass for mass in new_masses]) * MAX_SEQ_LENGTH,
             compression_rate=self.compression_per_cell,
         )
 
@@ -142,13 +139,9 @@ class DynamicProgrammingTable:
         )
 
 
-def set_table_path(reduce_table, reduce_set, precision, compression_rate):
+def set_table_path(precision, compression_rate):
     # Set path for DP table
-    path = (
-        f"{TABLE_DIR}/{'reduced' if reduce_table else 'full'}_table."
-        f"{'reduced' if reduce_set else 'full'}_set/"
-        f"tol_{precision:.0E}.{compression_rate}_per_cell"
-    )
+    path = f"{TABLE_DIR}/tol_{precision:.0E}.{compression_rate}_per_cell"
 
     # Create directory for DP table if it does not already exist
     subdir = "/".join(path.split("/")[:-1])
@@ -323,7 +316,7 @@ def set_up_mass_table(integer_masses, max_mass):
     return dp_table
 
 
-def load_dp_table(table_path, reduce_table, integer_masses):
+def load_dp_table(table_path, integer_masses):
     """
     Load dynamic-programming table if it exists and compute it otherwise.
     """
@@ -331,7 +324,7 @@ def load_dp_table(table_path, reduce_table, integer_masses):
     compression_rate = int(table_path.split(".")[-1].rstrip("_per_cell"))
 
     # Select maximum integer mass for which table should be built
-    max_mass = max(integer_masses) * (12 if reduce_table else 35)
+    max_mass = max(integer_masses) * MAX_SEQ_LENGTH
 
     # Compute and save bit-representation DP table if not existing
     if not pathlib.Path(f"{table_path}.npy").is_file():

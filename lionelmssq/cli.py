@@ -9,11 +9,11 @@ from lionelmssq.fragment_classification import classify_fragments
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.masses import (
     COMPRESSION_RATE,
+    EXPLANATION_MASSES,
     MATCHING_THRESHOLD,
     TOLERANCE,
     UNMODIFIED_BASES,
     build_breakage_dict,
-    initialize_nucleotide_df,
 )
 from lionelmssq.prediction import Predictor
 from lionelmssq.preprocessing import preprocess
@@ -86,11 +86,9 @@ def main():
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
-    simulation = False
-    if "observed_mass" in fragments.columns:
-        simulation = True
+    simulation = "observed_mass" in fragments.columns
 
-    explanation_masses = initialize_nucleotide_df(reduce_set=False)
+    explanation_masses = EXPLANATION_MASSES
 
     print(explanation_masses)
 
@@ -153,8 +151,6 @@ def main():
         tolerance=threshold,
         precision=TOLERANCE,
         seq=seq_info,
-        reduced_table=False,
-        reduced_set=False,
     )
 
     dp_table.print_masses()

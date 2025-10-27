@@ -10,8 +10,7 @@ _COLS = ["nucleoside", "monoisotopic_mass", "modification_rate"]
 UNMODIFIED_BASES = ["A", "C", "G", "U"]
 
 
-REDUCE_TABLE = True
-REDUCE_SET = False
+# Set number of binary-compressed masses per integer cell in DP table
 COMPRESSION_RATE = 32
 
 
@@ -47,14 +46,10 @@ PHOSPHATE_LINK_MASS = (
 )
 
 
-def initialize_nucleotide_df(reduce_set):
+def initialize_nucleotide_df() -> pl.DataFrame:
     # Read nucleoside masses from file
     masses = pl.read_csv(
-        (
-            importlib.resources.files(__package__)
-            / "assets"
-            / f"{'masses_bases' if reduce_set else 'masses'}.tsv"
-        ),
+        (importlib.resources.files(__package__) / "assets" / "masses.tsv"),
         separator="\t",
     )
     assert masses.columns == _COLS
@@ -88,7 +83,7 @@ def initialize_nucleotide_df(reduce_set):
     return masses
 
 
-EXPLANATION_MASSES = initialize_nucleotide_df(REDUCE_SET)
+EXPLANATION_MASSES = initialize_nucleotide_df()
 
 
 # METHOD: Precompute all weight changes caused by breakages and adapt the
