@@ -137,7 +137,9 @@ def test_testcase(testcase):
         else:
             # Read already preprocessed fragments
             fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
-            singletons = None
+            singletons = pl.DataFrame(
+                schema={"nucleoside": str, "count": int, "cluster_score": float}
+            )
 
         print("Singletons identified during preprocessing:", singletons)
         print()
