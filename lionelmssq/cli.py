@@ -157,6 +157,8 @@ def main():
         reduced_set=False,
     )
 
+    dp_table.print_masses()
+
     fragments = classify_fragments(
         fragment_masses=fragments,
         dp_table=dp_table,

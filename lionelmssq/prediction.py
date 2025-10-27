@@ -46,7 +46,8 @@ class Predictor:
             .sort("standard_unit_mass")
             .with_row_index(name="index")
         )
-        print(len(fragments))
+        print("Number of fragments before prediction:", len(fragments))
+        print()
 
         fragments = fragments.with_columns(
             pl.lit(0, dtype=pl.Int64).alias("min_end"),
@@ -63,11 +64,21 @@ class Predictor:
         # Build skeleton sequence from both sides and align them into final sequence
         skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(fragments)
 
+        print()
+        print("Number of fragments before skeleton-based reduction:", len(fragments))
+
         # Reduce nucleotide alphabet based on skeleton
         nucleotides = {nuc for skeleton_pos in skeleton_seq for nuc in skeleton_pos}
         fragments = self._reduce_alphabet(
             nucleotide_list=nucleotides, fragments=fragments
         )
+
+        print("Number of fragments after skeleton-based reduction:", len(fragments))
+        print()
+
+        print("Alphabet after skeleton-based reduction:")
+        self.dp_table.print_masses()
+        print()
 
         # Remove all "internal" fragment duplicates that are truly terminal fragments
         frag_internal = fragments.filter(
@@ -107,7 +118,9 @@ class Predictor:
             ),
         )
 
-        print("Fragments considered for fitting, n_fragments = ", len(fragments))
+        print()
+        print("Number of fragments considered for fitting:", len(fragments))
+        print()
 
         if len(fragments.filter(pl.col("breakage").str.contains("START"))) == 0:
             logger.warning(

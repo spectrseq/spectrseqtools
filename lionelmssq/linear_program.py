@@ -235,12 +235,8 @@ class LinearProgramInstance:
         # TODO the returned value resembles the accuracy of the prediction
         _ = self.problem.solve(solver)
 
-        # interpret solution
+        # Interpret solution
         seq = [self._get_base(i) for i in range(self.seq_len)]
-        print(
-            "Predicted sequence = ",
-            "".join([val if val is not None else "-" for val in seq]),
-        )
 
         fragment_masses = self.fragments.get_column("standard_unit_mass").to_list()
 

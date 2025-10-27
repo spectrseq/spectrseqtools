@@ -141,7 +141,8 @@ def test_testcase(testcase):
             fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
             singletons = None
 
-        print(singletons)
+        print("Singletons identified during preprocessing:", singletons)
+        print()
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_MATCHING_THRESHOLD(
