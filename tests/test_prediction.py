@@ -14,10 +14,11 @@ from lionelmssq.fragment_classification import classify_fragments
 from lionelmssq.preprocessing import preprocess
 from lionelmssq.masses import (
     COMPRESSION_RATE,
+    EXPLANATION_MASSES,
     TOLERANCE,
     MATCHING_THRESHOLD,
+    UNMODIFIED_BASES,
     build_breakage_dict,
-    initialize_nucleotide_df,
 )
 
 rt = get_mono()
@@ -80,7 +81,7 @@ def test_testcase(testcase):
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
 
-        explanation_masses = initialize_nucleotide_df(reduce_set=False)
+        explanation_masses = EXPLANATION_MASSES
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_matching_threshold(
@@ -108,8 +109,6 @@ def test_testcase(testcase):
 
         dp_table = DynamicProgrammingTable(
             explanation_masses,
-            reduced_table=True,
-            reduced_set=False,
             compression_rate=COMPRESSION_RATE,
             tolerance=matching_threshold,
             precision=TOLERANCE,
@@ -138,9 +137,12 @@ def test_testcase(testcase):
         else:
             # Read already preprocessed fragments
             fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
-            singletons = None
+            singletons = pl.DataFrame(
+                schema={"nucleoside": str, "count": int, "cluster_score": float}
+            )
 
-        print(singletons)
+        print("Singletons identified during preprocessing:", singletons)
+        print()
 
         # TODO: Discuss why it doesn't work with the estimated error!
         # matching_threshold, _, _ = estimate_MS_error_MATCHING_THRESHOLD(
@@ -151,7 +153,28 @@ def test_testcase(testcase):
         #     matching_threshold,
         # )
 
-        explanation_masses = initialize_nucleotide_df(reduce_set=True)
+        explanation_masses = EXPLANATION_MASSES
+
+        print("Original base alphabet:", explanation_masses)
+        print()
+
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(
+                pl.col("nucleoside").is_in(
+                    singletons.get_column("nucleoside").to_list()
+                )
+            )
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(0.0))
+            .alias("modification_rate")
+        )
+
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(1.0))
+            .alias("modification_rate")
+        )
 
         seq_info = SequenceInformation(
             max_len=int(
@@ -159,7 +182,9 @@ def test_testcase(testcase):
                 / TOLERANCE
                 / min(
                     pl.Series(
-                        explanation_masses.select("tolerated_integer_masses")
+                        explanation_masses.filter(
+                            pl.col("modification_rate") > 0.0
+                        ).select("tolerated_integer_masses")
                     ).to_list()
                 )
             ),
@@ -170,14 +195,16 @@ def test_testcase(testcase):
 
         dp_table = DynamicProgrammingTable(
             explanation_masses,
-            reduced_table=False,
-            reduced_set=True,
             compression_rate=COMPRESSION_RATE,
             tolerance=max(matching_threshold, 20e-6),
             # tolerance=matching_threshold,
             precision=TOLERANCE,
             seq=seq_info,
         )
+
+        print("Alphabet after singleton reduction:")
+        dp_table.print_masses()
+        print()
 
     fragments = classify_fragments(
         fragments,

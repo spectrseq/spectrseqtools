@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Self, Set
+from typing import List, Self, Set, Tuple
 import polars as pl
 from loguru import logger
 
 from lionelmssq.common import calculate_error_threshold, calculate_explanations
 from lionelmssq.linear_program import LinearProgramInstance
+from lionelmssq.mass_explanation import is_valid_mass
 from lionelmssq.mass_table import DynamicProgrammingTable
 from lionelmssq.masses import PHOSPHATE_LINK_MASS
 from lionelmssq.skeleton_building import SkeletonBuilder
@@ -45,38 +46,15 @@ class Predictor:
             .sort("standard_unit_mass")
             .with_row_index(name="index")
         )
-        print(len(fragments))
+        print("Number of fragments before prediction:", len(fragments))
+        print()
 
         fragments = fragments.with_columns(
             pl.lit(0, dtype=pl.Int64).alias("min_end"),
             pl.lit(-1, dtype=pl.Int64).alias("max_end"),
         )
 
-        # Collect internal fragments
-        frag_internal = fragments.filter(
-            ~pl.col("breakage").str.contains("START")
-            & ~pl.col("breakage").str.contains("END")
-        )
-
-        # Roughly explain the mass differences (to reduce the alphabet)
-        # Note there may be faulty mass fragments leading to not truly existent values
-        explanations = self.collect_diff_explanations_for_su(fragments=fragments)
-
-        # TODO: Also consider that the observations are not complete and that
-        #  we probably don't see all the letters as diffs or singletons.
-        #  Hence, maybe do the following: Solve first with the reduced
-        #  alphabet, and if the optimization does not yield a sufficiently
-        #  good result, then try again with an extended alphabet.
-
-        # Reduce nucleotide alphabet based on fragments
-        observed_nucleotides = {
-            nuc
-            for expls in explanations.values()
-            if expls is not None
-            for expl in expls
-            for nuc in expl
-        }
-        _ = self._reduce_alphabet(observed_nucleotides)
+        fragments, explanations = self.filter_by_explanation(fragments)
 
         skeleton_builder = SkeletonBuilder(
             explanations=explanations,
@@ -86,12 +64,27 @@ class Predictor:
         # Build skeleton sequence from both sides and align them into final sequence
         skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(fragments)
 
+        print()
+        print("Number of fragments before skeleton-based reduction:", len(fragments))
+
         # Reduce nucleotide alphabet based on skeleton
         nucleotides = {nuc for skeleton_pos in skeleton_seq for nuc in skeleton_pos}
-        masses = self._reduce_alphabet(nucleotides)
+        fragments = self._reduce_alphabet(
+            nucleotide_list=nucleotides, fragments=fragments
+        )
+
+        print("Number of fragments after skeleton-based reduction:", len(fragments))
+        print()
+
+        print("Alphabet after skeleton-based reduction:")
+        self.dp_table.print_masses()
+        print()
 
         # Remove all "internal" fragment duplicates that are truly terminal fragments
-        frag_internal = frag_internal.filter(
+        frag_internal = fragments.filter(
+            ~pl.col("breakage").str.contains("START")
+            & ~pl.col("breakage").str.contains("END")
+        ).filter(
             ~pl.col("fragment_index").is_in(
                 frag_terminal.get_column("fragment_index").to_list()
             )
@@ -112,7 +105,6 @@ class Predictor:
         )
         fragments = self.filter_with_lp(
             fragments=fragments,
-            masses=masses,
             skeleton_seq=skeleton_seq,
             solver_params=solver_params,
         )
@@ -126,7 +118,9 @@ class Predictor:
             ),
         )
 
-        print("Fragments considered for fitting, n_fragments = ", len(fragments))
+        print()
+        print("Number of fragments considered for fitting:", len(fragments))
+        print()
 
         if len(fragments.filter(pl.col("breakage").str.contains("START"))) == 0:
             logger.warning(
@@ -140,34 +134,74 @@ class Predictor:
 
         lp_instance = LinearProgramInstance(
             fragments=fragments,
-            nucleosides=masses,
             dp_table=self.dp_table,
             skeleton_seq=skeleton_seq,
         )
 
         return Prediction(*lp_instance.evaluate(solver_params))
 
-    def _reduce_alphabet(self, nucleotide_list: Set[str]) -> pl.DataFrame:
-        reduced = self.explanation_masses.filter(
-            pl.col("nucleoside").is_in(nucleotide_list)
-        )
-        reduced = reduced.with_columns(
-            (pl.col("monoisotopic_mass") + PHOSPHATE_LINK_MASS).alias(
-                "standard_unit_mass"
-            )
-        )
-        print("Nucleosides considered for fitting after alphabet reduction:", reduced)
+    def filter_by_explanation(
+        self, fragments: pl.DataFrame
+    ) -> Tuple[pl.DataFrame, dict]:
+        old_alphabet_size = -1
 
+        explanations = {}
+        while old_alphabet_size != len(self.dp_table.masses):
+            old_alphabet_size = len(self.dp_table.masses)
+            # Roughly explain the mass differences (to reduce the alphabet)
+            # Note there may be faulty mass fragments leading to not truly existent values
+            explanations = self.collect_diff_explanations_for_su(fragments=fragments)
+
+            # TODO: Also consider that the observations are not complete and that
+            #  we probably don't see all the letters as diffs or singletons.
+            #  Hence, maybe do the following: Solve first with the reduced
+            #  alphabet, and if the optimization does not yield a sufficiently
+            #  good result, then try again with an extended alphabet.
+
+            # Reduce nucleotide alphabet based on fragments
+            observed_nucleotides = {
+                nuc
+                for expls in explanations.values()
+                if expls is not None
+                for expl in expls
+                for nuc in expl
+            }
+            fragments = self._reduce_alphabet(observed_nucleotides, fragments)
+
+        print("Alphabet after explanation-based reduction:")
+        self.dp_table.print_masses()
+        print()
+
+        return fragments, explanations
+
+    def _reduce_alphabet(
+        self, nucleotide_list: Set[str], fragments: pl.DataFrame
+    ) -> pl.DataFrame:
         self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
             nucleotide_list
         )
 
-        return reduced
+        # Filter out all fragments without any explanations
+        return (
+            fragments.with_columns(
+                pl.struct("observed_mass", "standard_unit_mass")
+                .map_elements(
+                    lambda x: is_valid_mass(
+                        mass=x["standard_unit_mass"],
+                        dp_table=self.dp_table,
+                        threshold=self.dp_table.tolerance * x["observed_mass"],
+                    ),
+                    return_dtype=bool,
+                )
+                .alias("is_valid")
+            )
+            .filter(pl.col("is_valid"))
+            .drop("is_valid")
+        )
 
     def filter_with_lp(
         self,
         fragments: pl.DataFrame,
-        masses: list,
         skeleton_seq: list,
         solver_params: dict,
     ) -> pl.DataFrame:
@@ -182,7 +216,6 @@ class Predictor:
             # Initialize LP instance for a singular fragment
             filter_instance = LinearProgramInstance(
                 fragments=fragments[idx],
-                nucleosides=masses,
                 dp_table=self.dp_table,
                 skeleton_seq=skeleton_seq,
             )

@@ -7,13 +7,15 @@ import pathlib
 import numpy as np
 import os
 
-from lionelmssq.masses import UNMODIFIED_BASES
+from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 
-# Set OS-independent cache directory for DP tables
+# Set OS-independent cache directory for DP table
 TABLE_DIR = user_cache_dir(
-    appname="lionelmssq/dp_table", version="1.1", ensure_exists=True
+    appname="lionelmssq/dp_table", version="1.2", ensure_exists=True
 )
+# Set maximum sequence length to be represented in DP table
+MAX_SEQ_LENGTH = 35
 
 
 @dataclass
@@ -63,24 +65,23 @@ class DynamicProgrammingTable:
         tolerance: float,
         precision: float,
         seq: SequenceInformation,
-        reduced_table: bool = False,
-        reduced_set: bool = False,
     ):
         self.compression_per_cell = compression_rate
         self.tolerance = tolerance
         self.precision = precision
         self.seq = seq
         self.masses = initialize_nucleotide_masses(nucleotide_df)
-        self.table = load_dp_table(
-            table_path=set_table_path(
-                reduced_table, reduced_set, precision, compression_rate
-            ),
-            reduce_table=reduced_table,
-            integer_masses=[mass.mass for mass in self.masses],
-        )
+        self.table = None
 
         # Adapt individual modification rates to universal one
         self._adapt_individual_modification_rates_by_universal_one()
+
+        # Initialize table form file (for no alphabet reduction)
+        if self.table is None:
+            self.table = load_dp_table(
+                table_path=set_table_path(precision, compression_rate),
+                integer_masses=[mass.mass for mass in self.masses],
+            )
 
     def _adapt_individual_modification_rates_by_universal_one(self):
         for nucleotide_mass in self.masses:
@@ -88,6 +89,7 @@ class DynamicProgrammingTable:
                 continue
             if nucleotide_mass.modification_rate > self.seq.modification_rate:
                 nucleotide_mass.modification_rate = self.seq.modification_rate
+        self._reduce_nucleotide_list()
 
     def adapt_individual_modification_rates_by_alphabet_reduction(self, alphabet):
         for nucleotide_mass in self.masses:
@@ -95,15 +97,51 @@ class DynamicProgrammingTable:
                 continue
             if all(name not in alphabet for name in nucleotide_mass.names):
                 nucleotide_mass.modification_rate = 0.0
+        self._reduce_nucleotide_list()
+
+    def _reduce_nucleotide_list(self):
+        new_masses = [
+            mass
+            for mass in self.masses
+            if mass.mass == 0.0 or mass.modification_rate > 0.0
+        ]
+
+        # Return if nucleotide list was not reduced
+        if len(new_masses) == len(self.masses):
+            return
+
+        # Recompute table
+        self.table = set_up_bit_table(
+            integer_masses=[mass.mass for mass in new_masses],
+            max_mass=max([mass.mass for mass in new_masses]) * MAX_SEQ_LENGTH,
+            compression_rate=self.compression_per_cell,
+        )
+
+        # Update nucleotide list
+        self.masses = new_masses
+
+    def print_masses(self):
+        mass_names = []
+        for mass in self.masses:
+            mass_names += mass.names
+        masses = EXPLANATION_MASSES.sort("monoisotopic_mass").filter(
+            pl.col("nucleoside").is_in(mass_names)
+        )
+
+        print(
+            masses.replace_column(
+                masses.get_column_index("modification_rate"),
+                pl.Series(
+                    "modification_rate",
+                    [mass.modification_rate for mass in self.masses[1:]],
+                ),
+            )
+        )
 
 
-def set_table_path(reduce_table, reduce_set, precision, compression_rate):
+def set_table_path(precision, compression_rate):
     # Set path for DP table
-    path = (
-        f"{TABLE_DIR}/{'reduced' if reduce_table else 'full'}_table."
-        f"{'reduced' if reduce_set else 'full'}_set/"
-        f"tol_{precision:.0E}.{compression_rate}_per_cell"
-    )
+    path = f"{TABLE_DIR}/tol_{precision:.0E}.{compression_rate}_per_cell"
 
     # Create directory for DP table if it does not already exist
     subdir = "/".join(path.split("/")[:-1])
@@ -278,7 +316,7 @@ def set_up_mass_table(integer_masses, max_mass):
     return dp_table
 
 
-def load_dp_table(table_path, reduce_table, integer_masses):
+def load_dp_table(table_path, integer_masses):
     """
     Load dynamic-programming table if it exists and compute it otherwise.
     """
@@ -286,7 +324,7 @@ def load_dp_table(table_path, reduce_table, integer_masses):
     compression_rate = int(table_path.split(".")[-1].rstrip("_per_cell"))
 
     # Select maximum integer mass for which table should be built
-    max_mass = max(integer_masses) * (12 if reduce_table else 35)
+    max_mass = max(integer_masses) * MAX_SEQ_LENGTH
 
     # Compute and save bit-representation DP table if not existing
     if not pathlib.Path(f"{table_path}.npy").is_file():

@@ -69,8 +69,6 @@ def test_testcase_with_recursion(testcase, threshold):
 
     dp_table = DynamicProgrammingTable(
         EXPLANATION_MASSES,
-        reduced_table=True,
-        reduced_set=False,
         compression_rate=32,
         tolerance=threshold,
         precision=TOLERANCE,
@@ -116,8 +114,6 @@ def test_testcase_with_table(testcase, compression, threshold, memo):
 
     dp_table = DynamicProgrammingTable(
         EXPLANATION_MASSES,
-        reduced_table=True,
-        reduced_set=False,
         compression_rate=compression,
         tolerance=threshold,
         precision=TOLERANCE,
