@@ -173,7 +173,9 @@ class SkeletonBuilder:
 
         return skeleton_seq
 
-    def select_sequence_length(self, start_skeleton, end_skeleton) -> int:
+    def select_sequence_length(
+        self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
+    ) -> int:
         # Reduce nucleotide alphabet based on skeleton parts
         nucleotides = {
             nuc
@@ -183,6 +185,12 @@ class SkeletonBuilder:
         self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
             nucleotides
         )
+
+        # Initialize nucleotide mass dict
+        nucleoside_masses = {
+            mass.names[0]: mass.mass * self.dp_table.precision
+            for mass in self.dp_table.masses[1:]
+        }
 
         # Determine lower and upper bound
         min_len = compute_sequence_length_bound(dp_table=self.dp_table, dir="lower")
@@ -207,11 +215,38 @@ class SkeletonBuilder:
             )
 
             # Update best found sequence length if needed
-            if value > best_val:
+            if value > best_val and self.validate_sequence_length_by_mass(
+                start_skeleton=start_skeleton[:len_cand],
+                end_skeleton=end_skeleton[len(end_skeleton) - len_cand :],
+                nuc_masses=nucleoside_masses,
+            ):
                 best_val = value
                 best_len = len_cand
 
+        if best_val < 0:
+            raise Exception(
+                "No sequence length fitting the given sequence mass could be estimated."
+            )
+
         return best_len
+
+    def validate_sequence_length_by_mass(
+        self,
+        start_skeleton: List[Set[str]],
+        end_skeleton: List[Set[str]],
+        nuc_masses: dict,
+    ) -> bool:
+        min_mass = 0
+        max_mass = 0
+        for start_nucs, end_nucs in zip(start_skeleton, end_skeleton):
+            min_mass += min(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+            max_mass += max(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+
+        return min_mass - 10 <= self.dp_table.seq.su_mass <= max_mass + 10
 
     def explain_bin_differences(
         self,
