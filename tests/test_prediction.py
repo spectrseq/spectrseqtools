@@ -37,20 +37,87 @@ TESTS = ["test_01", "test_02", "test_03"]
     ids=[tc.name for tc in _TESTCASES.iterdir() if tc.name in TESTS],
 )
 def test_testcase(testcase):
+    # Read additional parameter from meta file
     base_path = _TESTCASES / testcase
     with open(base_path / "fragments.meta.yaml", "r") as f:
         meta = yaml.safe_load(f)
+
     if meta.get("skip"):
         pytest.skip("Testcase is marked as skipped in meta.yaml")
 
-    true_seq = parse_nucleosides(meta["true_sequence"])
+    # Set parameters for LP solver
+    solver_params = {
+        "solver": select_solver(os.environ.get("SOLVER", "cbc")),
+        # "solver": select_solver(os.environ.get("SOLVER", "gurobi")),
+        "threads": 1,
+        "msg": False,
+    }
 
-    input_file = pl.read_csv(base_path / "fragments.tsv", separator="\t")
+    # Differentiate between raw and already preprocessed input data
+    if os.path.isfile(base_path / "fragments.raw"):
+        simulation = False
+        # Preprocess raw data
+        fragments, singletons, meta = preprocess(
+            file_path=base_path / "fragments.raw",
+            deconvolution_params={},
+            meta_params=meta,
+        )
 
-    if "intensity_cutoff" in meta:
-        intensity_cutoff = meta["intensity_cutoff"]
+        # Save preprocessed fragments
+        fragments.write_csv(base_path / "fragments.tsv", separator="\t")
+
+        # Save singletons detected from raw data
+        singletons.write_csv(base_path / "fragments.singletons.tsv", separator="\t")
     else:
-        intensity_cutoff = 1e4
+        simulation = True
+        # Read already preprocessed fragments
+        fragments = pl.read_csv(
+            base_path / "fragments.tsv", separator="\t"
+        ).with_columns(
+            (pl.col("observed_mass").alias("observed_mass")),
+            (pl.col("true_mass_with_backbone").alias("true_mass")),
+        )
+        singletons = None
+
+    print("Singletons identified during preprocessing:", singletons)
+    print()
+
+    intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
+    explanation_masses = EXPLANATION_MASSES
+    matching_threshold = MATCHING_THRESHOLD
+
+    print("Original base alphabet:", explanation_masses)
+    print()
+
+    # Filter by singletons
+    if singletons is not None:
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(
+                pl.col("nucleoside").is_in(
+                    singletons.get_column("nucleoside").to_list()
+                )
+            )
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(0.0))
+            .alias("modification_rate")
+        )
+
+    # Ensure modification rates of unmodified bases are set to 1
+    explanation_masses = explanation_masses.with_columns(
+        pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
+        .then(pl.col("modification_rate"))
+        .otherwise(pl.lit(1.0))
+        .alias("modification_rate")
+    )
+
+    # TODO: Discuss why it doesn't work with the estimated error!
+    # matching_threshold, _, _ = estimate_MS_error_matching_threshold(
+    #     fragments, unique_masses=unique_masses, simulation=simulation
+    # )
+    # print(
+    #     "Matching threshold (rel error) estimated from singleton masses = ",
+    #     matching_threshold,
+    # )
 
     # Build breakage dict
     breakage_dict = build_breakage_dict(
@@ -68,159 +135,47 @@ def test_testcase(testcase):
         ][0]
     )
 
-    matching_threshold = MATCHING_THRESHOLD
-
-    # If the left and right columns exist, means that the input file is from a simulation with the sequence of each fragment known!
-    if "left" in input_file.columns or "right" in input_file.columns:
-        simulation = True
-
-        fragments = pl.read_csv(
-            base_path / "fragments.tsv", separator="\t"
-        ).with_columns(
-            (pl.col("observed_mass").alias("observed_mass")),
-            (pl.col("true_mass_with_backbone").alias("true_mass")),
-        )
-
-        explanation_masses = EXPLANATION_MASSES
-
-        # TODO: Discuss why it doesn't work with the estimated error!
-        # matching_threshold, _, _ = estimate_MS_error_matching_threshold(
-        #     fragments, unique_masses=unique_masses, simulation=simulation
-        # )
-        # print(
-        #     "Matching threshold (rel error) estimated from singleton masses = ",
-        #     matching_threshold,
-        # )
-
-        seq_info = SequenceInformation(
-            max_len=int(
-                seq_mass_su
-                / TOLERANCE
-                / min(
-                    pl.Series(
-                        explanation_masses.select("tolerated_integer_masses")
-                    ).to_list()
-                )
-            ),
-            su_mass=seq_mass_su,
-            obs_mass=seq_mass_obs,
-            modification_rate=0.5,
-        )
-
-        dp_table = DynamicProgrammingTable(
-            explanation_masses,
-            compression_rate=COMPRESSION_RATE,
-            tolerance=matching_threshold,
-            precision=TOLERANCE,
-            seq=seq_info,
-        )
-
-    else:
-        simulation = False
-
-        file_name = base_path / "fragments.raw"
-        if os.path.isfile(file_name):
-            # Preprocess raw data
-            fragments, singletons, meta = preprocess(
-                file_path=file_name,
-                deconvolution_params={},
-                meta_params=meta,
+    # Initialize SequenceInformation class
+    seq_info = SequenceInformation(
+        max_len=int(
+            seq_mass_su
+            / TOLERANCE
+            / min(
+                pl.Series(
+                    explanation_masses.filter(pl.col("modification_rate") > 0.0).select(
+                        "tolerated_integer_masses"
+                    )
+                ).to_list()
             )
+        ),
+        su_mass=seq_mass_su,
+        obs_mass=seq_mass_obs,
+        modification_rate=0.5,
+    )
 
-            # Save preprocessed fragments
-            fragments.write_csv(
-                base_path / "fragments.preprocessed.tsv", separator="\t"
-            )
+    # Initialize DynamicProgrammingTable class
+    dp_table = DynamicProgrammingTable(
+        explanation_masses,
+        compression_rate=COMPRESSION_RATE,
+        tolerance=matching_threshold,
+        precision=TOLERANCE,
+        seq=seq_info,
+    )
 
-            # Save singletons detected from raw data
-            singletons.write_csv(base_path / "fragments.singletons.tsv", separator="\t")
-        else:
-            # Read already preprocessed fragments
-            fragments = pl.read_csv(base_path / "fragments.tsv", separator="\t")
-            singletons = pl.DataFrame(
-                schema={"nucleoside": str, "count": int, "cluster_score": float}
-            )
+    print("Alphabet after singleton reduction:")
+    dp_table.print_masses()
+    print()
 
-        print("Singletons identified during preprocessing:", singletons)
-        print()
-
-        # TODO: Discuss why it doesn't work with the estimated error!
-        # matching_threshold, _, _ = estimate_MS_error_MATCHING_THRESHOLD(
-        #     fragment_masses_read, unique_masses=unique_masses, simulation=simulation
-        # )
-        # print(
-        #     "Matching threshold (rel error) estimated from singleton masses = ",
-        #     matching_threshold,
-        # )
-
-        explanation_masses = EXPLANATION_MASSES
-
-        print("Original base alphabet:", explanation_masses)
-        print()
-
-        explanation_masses = explanation_masses.with_columns(
-            pl.when(
-                pl.col("nucleoside").is_in(
-                    singletons.get_column("nucleoside").to_list()
-                )
-            )
-            .then(pl.col("modification_rate"))
-            .otherwise(pl.lit(0.0))
-            .alias("modification_rate")
-        )
-
-        explanation_masses = explanation_masses.with_columns(
-            pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
-            .then(pl.col("modification_rate"))
-            .otherwise(pl.lit(1.0))
-            .alias("modification_rate")
-        )
-
-        seq_info = SequenceInformation(
-            max_len=int(
-                seq_mass_su
-                / TOLERANCE
-                / min(
-                    pl.Series(
-                        explanation_masses.filter(
-                            pl.col("modification_rate") > 0.0
-                        ).select("tolerated_integer_masses")
-                    ).to_list()
-                )
-            ),
-            su_mass=seq_mass_su,
-            obs_mass=seq_mass_obs,
-            modification_rate=0.5,
-        )
-
-        dp_table = DynamicProgrammingTable(
-            explanation_masses,
-            compression_rate=COMPRESSION_RATE,
-            tolerance=max(matching_threshold, 20e-6),
-            # tolerance=matching_threshold,
-            precision=TOLERANCE,
-            seq=seq_info,
-        )
-
-        print("Alphabet after singleton reduction:")
-        dp_table.print_masses()
-        print()
-
+    # Classify preprocessed fragments
     fragments = classify_fragments(
-        fragments,
+        fragment_masses=fragments,
         dp_table=dp_table,
         breakage_dict=breakage_dict,
         output_file_path=base_path / "fragments.standard_unit_fragments.tsv",
         intensity_cutoff=intensity_cutoff,
     )
 
-    solver_params = {
-        "solver": select_solver(os.environ.get("SOLVER", "cbc")),
-        # "solver": select_solver(os.environ.get("SOLVER", "gurobi")),
-        "threads": 1,
-        "msg": False,
-    }
-
+    # Predict sequence
     prediction = Predictor(
         dp_table=dp_table,
         explanation_masses=explanation_masses,
@@ -228,6 +183,9 @@ def test_testcase(testcase):
         fragments=fragments,
         solver_params=solver_params,
     )
+
+    # Read true sequence from meta file
+    true_seq = parse_nucleosides(meta["true_sequence"])
 
     print("Predicted sequence =\t", prediction.sequence)
     print("True sequence =\t\t", true_seq)
@@ -241,6 +199,7 @@ def test_testcase(testcase):
     else:
         plot_prediction(prediction, true_seq).save(base_path / "fragments.plot.html")
 
+    # Save updated meta data
     meta["predicted_sequence"] = "".join(prediction.sequence)
     with open(base_path / "fragments.meta.yaml", "w") as f:
         yaml.safe_dump(meta, f)

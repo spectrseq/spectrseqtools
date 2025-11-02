@@ -38,6 +38,7 @@ class Settings(Tap):
 def main():
     settings = Settings(underscores_to_dashes=True).parse_args()
 
+    # Set parameters for LP solver
     solver_params = {
         "solver": select_solver(settings.solver),
         "threads": settings.threads,
@@ -83,7 +84,8 @@ def main():
                 "Support is currently only given for TSV or RAW files."
             )
 
-    print(singletons)
+    print("Singletons identified during preprocessing:", singletons)
+    print()
 
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
@@ -91,6 +93,10 @@ def main():
 
     explanation_masses = EXPLANATION_MASSES
 
+    print("Original base alphabet:", explanation_masses)
+    print()
+
+    # Filter by singletons
     if singletons is not None:
         explanation_masses = explanation_masses.with_columns(
             pl.when(
@@ -103,6 +109,7 @@ def main():
             .alias("modification_rate")
         )
 
+    # Ensure modification rates of unmodified bases are set to 1
     explanation_masses = explanation_masses.with_columns(
         pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
         .then(pl.col("modification_rate"))
@@ -111,10 +118,7 @@ def main():
     )
 
     # Build breakage dict
-    breakage_dict = build_breakage_dict(
-        mass_5_prime=start_tag,
-        mass_3_prime=end_tag,
-    )
+    breakage_dict = build_breakage_dict(mass_5_prime=start_tag, mass_3_prime=end_tag)
 
     # Standardize sequence mass (remove START_END breakage to gain SU mass)
     seq_mass_obs = meta["sequence_mass"]
@@ -145,6 +149,7 @@ def main():
         modification_rate=settings.modification_rate,
     )
 
+    # Initialize DynamicProgrammingTable class
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
@@ -153,8 +158,11 @@ def main():
         seq=seq_info,
     )
 
+    print("Alphabet after singleton reduction:")
     dp_table.print_masses()
+    print()
 
+    # Classify preprocessed fragments
     fragments = classify_fragments(
         fragment_masses=fragments,
         dp_table=dp_table,
@@ -163,6 +171,7 @@ def main():
         intensity_cutoff=intensity_cutoff,
     )
 
+    # Predict sequence
     prediction = Predictor(
         dp_table=dp_table,
         explanation_masses=explanation_masses,
