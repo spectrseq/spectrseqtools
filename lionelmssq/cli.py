@@ -61,9 +61,7 @@ def main():
                 meta_params=meta,
             )
             # Save preprocessed fragments
-            fragments.write_csv(
-                fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
-            )
+            fragments.write_csv(fragment_dir / f"{file_prefix}.tsv", separator="\t")
 
             # Save singletons detected from raw data
             singletons.write_csv(
@@ -171,6 +169,8 @@ def main():
         fragments=fragments,
         solver_params=solver_params,
     )
+
+    print("Predicted sequence =\t", prediction.sequence)
 
     # Save fragment predictions
     prediction.fragments.write_csv(settings.fragment_predictions, separator="\t")
