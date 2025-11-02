@@ -91,8 +91,6 @@ def main():
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
-    simulation = "observed_mass" in fragments.columns
-
     explanation_masses = EXPLANATION_MASSES
 
     print(explanation_masses)
@@ -112,8 +110,6 @@ def main():
         .otherwise(pl.lit(1.0))
         .alias("modification_rate")
     )
-
-    threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
 
     # Build breakage dict
     breakage_dict = build_breakage_dict(
@@ -153,7 +149,7 @@ def main():
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
-        tolerance=threshold,
+        tolerance=MATCHING_THRESHOLD,
         precision=TOLERANCE,
         seq=seq_info,
     )
