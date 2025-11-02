@@ -1,6 +1,5 @@
 import polars as pl
 import yaml
-import os
 from pathlib import Path
 from tap import Tap
 from typing import Literal
@@ -51,35 +50,40 @@ def main():
     with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
 
-    file_name = fragment_dir / f"{file_prefix}.raw"
-    if os.path.isfile(file_name):
-        print("Preprocessing raw data...")
-        # Preprocess raw data
-        fragments, singletons, meta = preprocess(
-            file_path=file_name,
-            deconvolution_params={},
-            meta_params=meta,
-        )
-        # Save preprocessed fragments
-        fragments.write_csv(
-            fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
-        )
+    # Preprocess data if necessary
+    match settings.fragments.suffix:
+        case ".raw":
+            print("RAW file found. Preprocessing raw data...")
+            # Preprocess raw data
+            fragments, singletons, meta = preprocess(
+                file_path=settings.fragments,
+                deconvolution_params={},
+                meta_params=meta,
+            )
+            # Save preprocessed fragments
+            fragments.write_csv(
+                fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
+            )
 
-        # Save singletons detected from raw data
-        singletons.write_csv(
-            fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
-        )
+            # Save singletons detected from raw data
+            singletons.write_csv(
+                fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
+            )
 
-        # Save updated meta data
-        with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
-            yaml.dump(meta, f)
+            # Save updated meta data
+            with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
+                yaml.dump(meta, f)
 
-        print("Preprocessing completed!\n")
-    else:
-        print("Raw file not found. Proceeding with preprocessed data.")
-        # Read already preprocessed fragments
-        fragments = pl.read_csv(settings.fragments, separator="\t")
-        singletons = None
+            print("Preprocessing completed!\n")
+        case ".tsv":
+            print("TSV file found. Proceeding without preprocessing.")
+            # Read already preprocessed fragments
+            fragments = pl.read_csv(settings.fragments, separator="\t")
+            singletons = None
+        case _:
+            raise NotImplementedError(
+                "Support is currently only given for TSV or RAW files."
+            )
 
     print(singletons)
 
