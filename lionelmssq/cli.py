@@ -20,19 +20,20 @@ from lionelmssq.preprocessing import preprocess
 
 
 class Settings(Tap):
-    fragments: Path  # path to .tsv table with observed fragments to use for prediction
+    fragments: Path  # Path to TSV table or RAW data of observed fragments to use for prediction
+    meta: Path  # Path to YAML with meta information to use for prediction
     fragment_predictions: (
-        Path  # path to .tsv table that shall contain the per fragment predictions
+        Path  # Path to TSV table that shall contain the per fragment predictions
     )
     sequence_prediction: (
-        Path  # path to .fasta file that shall contain the predicted sequence
+        Path  # Path to FASTA file that shall contain the predicted sequence
     )
     sequence_name: str
-    modification_rate: float = 0.5  # maximum percentage of modification in sequence
+    modification_rate: float = 0.5  # Maximum percentage of modification in sequence
     solver: Literal["gurobi", "cbc"] = (
-        "gurobi"  # solver to use for the optimization problem
+        "gurobi"  # Solver to use for the optimization problem
     )
-    threads: int = 1  # number of threads to use for the optimization problem
+    threads: int = 1  # Number of threads to use for the optimization problem
 
 
 def main():
@@ -47,7 +48,7 @@ def main():
     # Read additional parameter from meta file
     fragment_dir = settings.fragments.parent
     file_prefix = settings.fragments.stem
-    with open(fragment_dir / f"{file_prefix}.meta.yaml", "r") as f:
+    with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
 
     file_name = fragment_dir / f"{file_prefix}.raw"
