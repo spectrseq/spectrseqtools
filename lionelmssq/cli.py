@@ -91,16 +91,17 @@ def main():
 
     explanation_masses = EXPLANATION_MASSES
 
-    print(explanation_masses)
-
-    explanation_masses = explanation_masses.with_columns(
-        pl.when(
-            pl.col("nucleoside").is_in(singletons.get_column("nucleoside").to_list())
+    if singletons is not None:
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(
+                pl.col("nucleoside").is_in(
+                    singletons.get_column("nucleoside").to_list()
+                )
+            )
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(0.0))
+            .alias("modification_rate")
         )
-        .then(pl.col("modification_rate"))
-        .otherwise(pl.lit(0.0))
-        .alias("modification_rate")
-    )
 
     explanation_masses = explanation_masses.with_columns(
         pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
