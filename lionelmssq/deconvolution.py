@@ -22,8 +22,7 @@ COL_TYPES_DEISOTOPED = {
     "peak_idx": pl.Int64,
     "intensity": pl.Float64,
     "neutral_mass": pl.Float64,
-    "is_precursor": pl.Boolean,
-    "is_deisotoped": pl.Boolean,
+    "is_precursor_deisotoped": pl.Boolean,
     "mz": pl.Float64,
 }
 
@@ -201,8 +200,7 @@ class DeisotopedPeak:
     peak_idx: int
     intensity: float
     neutral_mass: float
-    is_precursor: bool
-    is_deisotoped: bool
+    is_precursor_deisotoped: bool
     mz: float
 
 
@@ -269,8 +267,7 @@ def deconvolute_scan(
             peak_idx=idx,
             intensity=peak_set.peaks[idx].intensity,
             neutral_mass=peak_set.peaks[idx].neutral_mass,
-            is_precursor=is_precursor,
-            is_deisotoped=(
+            is_precursor_deisotoped=(
                 False
                 if not is_precursor
                 else precursor_mz
@@ -401,7 +398,7 @@ def aggregate_peaks_into_fragments(peak_list: List[DeisotopedPeak]) -> pl.DataFr
         .agg(
             neutral_mass=pl.col("neutral_mass").max(),
             intensity=pl.col("intensity").sum(),
-            is_precursor_deisotoped=pl.col("is_deisotoped").max(),
+            is_precursor_deisotoped=pl.col("is_precursor_deisotoped").max(),
         )
         .sort("neutral_mass")
     )
