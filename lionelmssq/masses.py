@@ -2,7 +2,7 @@ import importlib.resources
 import polars as pl
 from itertools import product
 
-_COLS = ["nucleoside", "monoisotopic_mass", "modification_rate"]
+_COLS = ["nucleoside", "canonical_name", "monoisotopic_mass", "modification_rate"]
 
 
 # TODO: Currently, the list of unmodified bases is only defined for RNA;
