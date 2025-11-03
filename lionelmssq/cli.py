@@ -1,6 +1,5 @@
 import polars as pl
 import yaml
-import os
 from pathlib import Path
 from tap import Tap
 from typing import Literal
@@ -20,24 +19,26 @@ from lionelmssq.preprocessing import preprocess
 
 
 class Settings(Tap):
-    fragments: Path  # path to .tsv table with observed fragments to use for prediction
+    fragments: Path  # Path to TSV table or RAW data of observed fragments to use for prediction
+    meta: Path  # Path to YAML with meta information to use for prediction
     fragment_predictions: (
-        Path  # path to .tsv table that shall contain the per fragment predictions
+        Path  # Path to TSV table that shall contain the per fragment predictions
     )
     sequence_prediction: (
-        Path  # path to .fasta file that shall contain the predicted sequence
+        Path  # Path to FASTA file that shall contain the predicted sequence
     )
     sequence_name: str
-    modification_rate: float = 0.5  # maximum percentage of modification in sequence
+    modification_rate: float = 0.5  # Maximum percentage of modification in sequence
     solver: Literal["gurobi", "cbc"] = (
-        "gurobi"  # solver to use for the optimization problem
+        "gurobi"  # Solver to use for the optimization problem
     )
-    threads: int = 1  # number of threads to use for the optimization problem
+    threads: int = 1  # Number of threads to use for the optimization problem
 
 
 def main():
     settings = Settings(underscores_to_dashes=True).parse_args()
 
+    # Set parameters for LP solver
     solver_params = {
         "solver": select_solver(settings.solver),
         "threads": settings.threads,
@@ -47,60 +48,68 @@ def main():
     # Read additional parameter from meta file
     fragment_dir = settings.fragments.parent
     file_prefix = settings.fragments.stem
-    with open(fragment_dir / f"{file_prefix}.meta.yaml", "r") as f:
+    with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
 
-    file_name = fragment_dir / f"{file_prefix}.raw"
-    if os.path.isfile(file_name):
-        print("Preprocessing raw data...")
-        # Preprocess raw data
-        fragments, singletons, meta = preprocess(
-            file_path=file_name,
-            deconvolution_params={},
-            meta_params=meta,
-        )
-        # Save preprocessed fragments
-        fragments.write_csv(
-            fragment_dir / f"{file_prefix}.preprocessed.tsv", separator="\t"
-        )
+    # Preprocess data if necessary
+    match settings.fragments.suffix:
+        case ".raw":
+            print("RAW file found. Preprocessing raw data...")
+            # Preprocess raw data
+            fragments, singletons, meta = preprocess(
+                file_path=settings.fragments,
+                deconvolution_params={},
+                meta_params=meta,
+            )
+            # Save preprocessed fragments
+            fragments.write_csv(fragment_dir / f"{file_prefix}.tsv", separator="\t")
 
-        # Save singletons detected from raw data
-        singletons.write_csv(
-            fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
-        )
+            # Save singletons detected from raw data
+            singletons.write_csv(
+                fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
+            )
 
-        # Save updated meta data
-        with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
-            yaml.dump(meta, f)
+            # Save updated meta data
+            with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
+                yaml.dump(meta, f)
 
-        print("Preprocessing completed!\n")
-    else:
-        print("Raw file not found. Proceeding with preprocessed data.")
-        # Read already preprocessed fragments
-        fragments = pl.read_csv(settings.fragments, separator="\t")
-        singletons = None
+            print("Preprocessing completed!\n")
+        case ".tsv":
+            print("TSV file found. Proceeding without preprocessing.")
+            # Read already preprocessed fragments
+            fragments = pl.read_csv(settings.fragments, separator="\t")
+            singletons = None
+        case _:
+            raise NotImplementedError(
+                "Support is currently only given for TSV or RAW files."
+            )
 
-    print(singletons)
+    print("Singletons identified during preprocessing:", singletons)
+    print()
 
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
     start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
     end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
-    simulation = "observed_mass" in fragments.columns
-
     explanation_masses = EXPLANATION_MASSES
 
-    print(explanation_masses)
+    print("Original base alphabet:", explanation_masses)
+    print()
 
-    explanation_masses = explanation_masses.with_columns(
-        pl.when(
-            pl.col("nucleoside").is_in(singletons.get_column("nucleoside").to_list())
+    # Filter by singletons
+    if singletons is not None:
+        explanation_masses = explanation_masses.with_columns(
+            pl.when(
+                pl.col("nucleoside").is_in(
+                    singletons.get_column("nucleoside").to_list()
+                )
+            )
+            .then(pl.col("modification_rate"))
+            .otherwise(pl.lit(0.0))
+            .alias("modification_rate")
         )
-        .then(pl.col("modification_rate"))
-        .otherwise(pl.lit(0.0))
-        .alias("modification_rate")
-    )
 
+    # Ensure modification rates of unmodified bases are set to 1
     explanation_masses = explanation_masses.with_columns(
         pl.when(~pl.col("nucleoside").is_in(UNMODIFIED_BASES))
         .then(pl.col("modification_rate"))
@@ -108,13 +117,8 @@ def main():
         .alias("modification_rate")
     )
 
-    threshold = MATCHING_THRESHOLD if simulation else max(MATCHING_THRESHOLD, 20e-6)
-
     # Build breakage dict
-    breakage_dict = build_breakage_dict(
-        mass_5_prime=start_tag,
-        mass_3_prime=end_tag,
-    )
+    breakage_dict = build_breakage_dict(mass_5_prime=start_tag, mass_3_prime=end_tag)
 
     # Standardize sequence mass (remove START_END breakage to gain SU mass)
     seq_mass_obs = meta["sequence_mass"]
@@ -145,16 +149,20 @@ def main():
         modification_rate=settings.modification_rate,
     )
 
+    # Initialize DynamicProgrammingTable class
     dp_table = DynamicProgrammingTable(
         nucleotide_df=explanation_masses,
         compression_rate=int(COMPRESSION_RATE),
-        tolerance=threshold,
+        tolerance=MATCHING_THRESHOLD,
         precision=TOLERANCE,
         seq=seq_info,
     )
 
+    print("Alphabet after singleton reduction:")
     dp_table.print_masses()
+    print()
 
+    # Classify preprocessed fragments
     fragments = classify_fragments(
         fragment_masses=fragments,
         dp_table=dp_table,
@@ -163,6 +171,7 @@ def main():
         intensity_cutoff=intensity_cutoff,
     )
 
+    # Predict sequence
     prediction = Predictor(
         dp_table=dp_table,
         explanation_masses=explanation_masses,
@@ -170,6 +179,8 @@ def main():
         fragments=fragments,
         solver_params=solver_params,
     )
+
+    print("Predicted sequence =\t", prediction.sequence)
 
     # Save fragment predictions
     prediction.fragments.write_csv(settings.fragment_predictions, separator="\t")

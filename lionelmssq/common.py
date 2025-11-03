@@ -9,7 +9,7 @@ from lionelmssq.mass_table import DynamicProgrammingTable
 
 rt = get_mono()
 
-ERROR_METHOD = "l2_norm"
+ERROR_METHOD = "l1_norm"
 _NUCLEOSIDE_RE = re.compile(r"\d*[ACGU]")
 
 
