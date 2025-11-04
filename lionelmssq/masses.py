@@ -15,12 +15,10 @@ COMPRESSION_RATE = 32
 
 
 # Set the number of decimal places up to which to consider nucleoside masses
-DECIMAL_PLACES = 5
+DECIMAL_PLACES = 3
 
 # Set precision for calculations
-# Note that for perfect matching, this should be equal or higher the precision
-# to which nucleosides/sequences masses are reported, i.e. 1e-(DECIMAL_PLACES)
-TOLERANCE = 1e-3
+TOLERANCE = 10 ** (-DECIMAL_PLACES)
 
 # Set relative matching threshold such that we consider
 # abs(sum(masses)/target_mass - 1) < MATCHING_THRESHOLD for matching
@@ -55,7 +53,7 @@ def initialize_nucleotide_df() -> pl.DataFrame:
     assert masses.columns == _COLS
 
     # Round nucleoside masses
-    masses = masses.with_columns(pl.col("monoisotopic_mass").round(DECIMAL_PLACES))
+    masses = masses.with_columns(pl.col("monoisotopic_mass").round(DECIMAL_PLACES + 1))
 
     # Group nucleosides by their mass, select a representative for each
     # group, and aggregate them into a list of equal-mass nucleosides
