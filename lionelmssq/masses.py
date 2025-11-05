@@ -52,7 +52,8 @@ def initialize_nucleotide_df() -> pl.DataFrame:
     )
     assert masses.columns == _COLS
 
-    # Round nucleoside masses
+    # Round nucleoside masses, we consider DECIMAL_PLACES+1 for since
+    # rounding errors propagate at the last decimal digit
     masses = masses.with_columns(pl.col("monoisotopic_mass").round(DECIMAL_PLACES + 1))
 
     # Group nucleosides by their mass, select a representative for each
