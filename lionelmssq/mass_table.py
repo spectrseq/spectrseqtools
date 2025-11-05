@@ -12,7 +12,7 @@ from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 # Set OS-independent cache directory for DP table
 TABLE_DIR = user_cache_dir(
-    appname="lionelmssq/dp_table", version="1.2", ensure_exists=True
+    appname="lionelmssq/dp_table", version="1.3", ensure_exists=True
 )
 # Set maximum sequence length to be represented in DP table
 MAX_SEQ_LENGTH = 35
