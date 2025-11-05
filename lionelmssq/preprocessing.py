@@ -81,18 +81,11 @@ def select_sequence_mass(
     originally implemented by Moshir Harsh (btemoshir@gmail.com).
 
     """
-
-    start_tag = (
-        meta_params["label_mass_5T"] if "label_mass_5T" in meta_params else 555.1294
-    )
-    end_tag = (
-        meta_params["label_mass_3T"] if "label_mass_3T" in meta_params else 455.1491
-    )
-
+    
     return (
         fragments.filter(
             (pl.col("is_precursor_deisotoped"))
-            & (pl.col("neutral_mass") > (start_tag + end_tag))
+            & (pl.col("neutral_mass") > (meta_params["label_mass_5T"] + meta_params["label_mass_3T"]))
         )
         .filter((pl.col("intensity") == pl.col("intensity").max()))["neutral_mass"]
         .to_list()[0]
