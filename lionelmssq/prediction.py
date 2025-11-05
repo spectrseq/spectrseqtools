@@ -62,7 +62,7 @@ class Predictor:
         )
 
         # Build skeleton sequence from both sides and align them into final sequence
-        skeleton_seq, frag_terminal = skeleton_builder.build_skeleton(fragments)
+        skeleton_seq, fragments = skeleton_builder.build_skeleton(fragments)
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
@@ -79,31 +79,6 @@ class Predictor:
         print("Alphabet after skeleton-based reduction:")
         self.dp_table.print_masses()
         print()
-
-        # Remove all "internal" fragment duplicates that are truly terminal fragments
-        frag_internal = fragments.filter(
-            ~pl.col("breakage").str.contains("START")
-            & ~pl.col("breakage").str.contains("END")
-        ).filter(
-            ~pl.col("fragment_index").is_in(
-                frag_terminal.get_column("fragment_index").to_list()
-            )
-        )
-
-        # Rebuild fragment dataframe from internal and terminal fragments
-        fragments = frag_internal.vstack(frag_terminal).sort("index")
-
-        # Ensure all end indices match estimated sequence length
-        fragments = fragments.with_columns(
-            pl.when((pl.col("min_end") < 0) | (pl.col("min_end") >= len(skeleton_seq)))
-            .then(pl.lit(len(skeleton_seq) - 1))
-            .otherwise(pl.col("min_end"))
-            .alias("min_end"),
-            pl.when((pl.col("max_end") < 0) | (pl.col("max_end") >= len(skeleton_seq)))
-            .then(pl.lit(len(skeleton_seq) - 1))
-            .otherwise(pl.col("max_end"))
-            .alias("max_end"),
-        )
 
         # Filter out all internal fragments that do not fit anywhere in skeleton
         print(

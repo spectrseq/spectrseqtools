@@ -56,11 +56,35 @@ class SkeletonBuilder:
             (len(skeleton_seq) - pl.col("max_end")).alias("max_end"),
         )
 
-        # Return skeleton and valid terminal fragments
-        return (
-            skeleton_seq,
-            pl.concat([start_fragments, end_fragments]),
+        frag_terminal = pl.concat([start_fragments, end_fragments])
+
+        # Remove all "internal" fragment duplicates that are truly terminal fragments
+        frag_internal = fragments.filter(
+            ~pl.col("breakage").str.contains("START")
+            & ~pl.col("breakage").str.contains("END")
+        ).filter(
+            ~pl.col("fragment_index").is_in(
+                frag_terminal.get_column("fragment_index").to_list()
+            )
         )
+
+        # Rebuild fragment dataframe from internal and terminal fragments
+        fragments = frag_internal.vstack(frag_terminal).sort("index")
+
+        # Ensure all end indices match estimated sequence length
+        fragments = fragments.with_columns(
+            pl.when((pl.col("min_end") < 0) | (pl.col("min_end") >= len(skeleton_seq)))
+            .then(pl.lit(len(skeleton_seq) - 1))
+            .otherwise(pl.col("min_end"))
+            .alias("min_end"),
+            pl.when((pl.col("max_end") < 0) | (pl.col("max_end") >= len(skeleton_seq)))
+            .then(pl.lit(len(skeleton_seq) - 1))
+            .otherwise(pl.col("max_end"))
+            .alias("max_end"),
+        )
+
+        # Return skeleton and fragments
+        return skeleton_seq, fragments
 
     def _predict_skeleton(
         self,
