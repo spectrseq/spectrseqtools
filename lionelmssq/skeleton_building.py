@@ -44,6 +44,12 @@ class SkeletonBuilder:
             ~pl.col("index").is_in(start_fragments.get_column("index").to_list())
         )
 
+        # Remove indexing of the next pos for START fragments
+        start_fragments = start_fragments.with_columns(
+            (pl.col("min_end") - 1).alias("min_end"),
+            (pl.col("max_end") - 1).alias("max_end"),
+        )
+
         # Remove reverse indexing for END fragments
         end_fragments = end_fragments.with_columns(
             (len(skeleton_seq) - pl.col("min_end")).alias("min_end"),
@@ -126,8 +132,8 @@ class SkeletonBuilder:
 
                 # Adapt information on end index for given bin
                 for idx in current_bin:
-                    fragments[idx, "min_end"] = min(pos, default=0)
-                    fragments[idx, "max_end"] = max(pos, default=-1)
+                    fragments[idx, "min_end"] = min(pos, default=1)
+                    fragments[idx, "max_end"] = max(pos, default=0)
 
                 # Update information for previous bin
                 last_valid_bin = current_bin
