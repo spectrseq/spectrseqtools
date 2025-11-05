@@ -47,13 +47,18 @@ def preprocess(
 
     # Update meta parameters (if needed)
     meta_params.setdefault("identity", file_path.stem)
-    meta_params.setdefault("sequence_mass", select_sequence_mass(fragments))
+    meta_params.setdefault(
+        "sequence_mass", select_sequence_mass(fragments, meta_params)
+    )
     meta_params.setdefault("true_sequence", None)
 
     return fragments, singletons, meta_params
 
 
-def select_sequence_mass(fragments: pl.DataFrame) -> float:
+def select_sequence_mass(
+    fragments: pl.DataFrame,
+    meta_params: dict,
+) -> float:
     """
     Select sequence mass from deconvoluted fragments.
 
@@ -76,8 +81,15 @@ def select_sequence_mass(fragments: pl.DataFrame) -> float:
     originally implemented by Moshir Harsh (btemoshir@gmail.com).
 
     """
+
     return (
-        fragments.filter(pl.col("is_precursor_deisotoped"))
-        .filter(pl.col("intensity") == pl.col("intensity").max())["neutral_mass"]
+        fragments.filter(
+            (pl.col("is_precursor_deisotoped"))
+            & (
+                pl.col("neutral_mass")
+                > (meta_params["label_mass_5T"] + meta_params["label_mass_3T"])
+            )
+        )
+        .filter((pl.col("intensity") == pl.col("intensity").max()))["neutral_mass"]
         .to_list()[0]
     )

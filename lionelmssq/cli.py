@@ -51,6 +51,10 @@ def main():
     with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
 
+    intensity_cutoff = meta.setdefault("intensity_cutoff", 1e6)
+    start_tag = meta.setdefault("label_mass_5T", 555.1294)
+    end_tag = meta.setdefault("label_mass_3T", 455.1491)
+
     # Preprocess data if necessary
     match settings.fragments.suffix:
         case ".raw":
@@ -86,10 +90,6 @@ def main():
 
     print("Singletons identified during preprocessing:", singletons)
     print()
-
-    intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
-    start_tag = meta["label_mass_5T"] if "label_mass_5T" in meta else 555.1294
-    end_tag = meta["label_mass_3T"] if "label_mass_3T" in meta else 455.1491
 
     explanation_masses = EXPLANATION_MASSES
 
