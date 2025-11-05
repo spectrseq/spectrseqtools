@@ -27,34 +27,28 @@ class SkeletonBuilder:
         )
         print("Skeleton sequence start = ", start_skeleton)
 
-        # Build skeleton sequence from 3'-end
+        # Build skeleton sequence from 3'-end and reverse it
         end_skeleton, end_fragments = self._predict_skeleton(
             fragments=fragments.filter(pl.col("breakage").str.contains("END")),
             skeleton_seq=[set() for _ in range(self.dp_table.seq.max_len)],
         )
-        # Reverse skeleton from END fragments
         end_skeleton = end_skeleton[::-1]
+        print("Skeleton sequence end = ", end_skeleton)
 
-        # Adapt end indices to reverse indexation of END fragments
-        end_fragments = end_fragments.with_columns(
-            pl.struct("min_end", "max_end")
-            .map_elements(lambda x: -1 - x["max_end"], return_dtype=int)
-            .alias("min_end"),
-            pl.struct("min_end", "max_end")
-            .map_elements(lambda x: -1 - x["min_end"], return_dtype=int)
-            .alias("max_end"),
-        )
+        # Combine both skeleton sequences
+        skeleton_seq = self._align_skeletons(start_skeleton, end_skeleton)
+        print("Skeleton sequence = ", skeleton_seq)
 
         # Ensure fragments only occur once
         end_fragments = end_fragments.filter(
             ~pl.col("index").is_in(start_fragments.get_column("index").to_list())
         )
 
-        print("Skeleton sequence end = ", end_skeleton)
-
-        # Combine both skeleton sequences
-        skeleton_seq = self._align_skeletons(start_skeleton, end_skeleton)
-        print("Skeleton sequence = ", skeleton_seq)
+        # Remove reverse indexing for END fragments
+        end_fragments = end_fragments.with_columns(
+            (len(skeleton_seq) - pl.col("min_end")).alias("min_end"),
+            (len(skeleton_seq) - pl.col("max_end")).alias("max_end"),
+        )
 
         # Return skeleton and valid terminal fragments
         return (
