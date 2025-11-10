@@ -53,7 +53,7 @@ class SkeletonBuilder:
             )
 
         # Combine both skeleton sequences
-        skeleton_seq = self._align_skeletons(
+        skeleton_seq = combine_skeleton_sequences(
             seq_len=seq_len,
             start_skeleton=start_skeleton,
             end_skeleton=end_skeleton,
@@ -191,31 +191,6 @@ class SkeletonBuilder:
 
         return skeleton_seq, fragments
 
-    def _align_skeletons(
-        self,
-        seq_len: int,
-        start_skeleton: List[Set[str]],
-        end_skeleton: List[Set[str]],
-    ) -> List[Set[str]]:
-        # Adapt directed skeleton parts to have correct length
-        start_skeleton = start_skeleton[:seq_len]
-        end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
-
-        skeleton_seq = [set() for _ in range(seq_len)]
-        for i in range(seq_len):
-            # Preferentially consider nucleotides where start and end agree
-            skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
-
-            # If the intersection is empty, use the union instead
-            if not skeleton_seq[i]:
-                skeleton_seq[i] = start_skeleton[i].union(end_skeleton[i])
-
-        # TODO: Its more complicated, since if two positions are ambiguous,
-        #  they are not independent. If one nucleotide is selected this way,
-        #  then the same nucleotide cannot be selected in the other position!
-
-        return skeleton_seq
-
     def select_sequence_length_with_lp(
         self,
         start_skeleton: List[Set[str]],
@@ -248,7 +223,7 @@ class SkeletonBuilder:
         best_len = -1
         best_val = np.inf
         for len_cand in range(min_len, max_len + 1):
-            seq = self._align_skeletons(
+            seq = combine_skeleton_sequences(
                 seq_len=len_cand,
                 start_skeleton=start_skeleton,
                 end_skeleton=end_skeleton,
@@ -510,3 +485,28 @@ def jaccard_index(input: Tuple[Set[str], Set[str]]) -> float:
 
     # Return Jaccard score
     return len(input[0].intersection(input[1])) / len(input[0].union(input[1]))
+
+
+def combine_skeleton_sequences(
+    seq_len: int,
+    start_skeleton: List[Set[str]],
+    end_skeleton: List[Set[str]],
+) -> List[Set[str]]:
+    # Adapt directed skeleton parts to have correct length
+    start_skeleton = start_skeleton[:seq_len]
+    end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
+
+    skeleton_seq = [set() for _ in range(seq_len)]
+    for i in range(seq_len):
+        # Preferentially consider nucleotides where start and end agree
+        skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
+
+        # If the intersection is empty, use the union instead
+        if not skeleton_seq[i]:
+            skeleton_seq[i] = start_skeleton[i].union(end_skeleton[i])
+
+    # TODO: Its more complicated, since if two positions are ambiguous,
+    #  they are not independent. If one nucleotide is selected this way,
+    #  then the same nucleotide cannot be selected in the other position!
+
+    return skeleton_seq
