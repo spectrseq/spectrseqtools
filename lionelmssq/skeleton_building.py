@@ -35,8 +35,18 @@ class SkeletonBuilder:
         end_skeleton = end_skeleton[::-1]
         print("Skeleton sequence end = ", end_skeleton)
 
+        # Select best sequence length
+        seq_len = self.select_sequence_length(
+            start_skeleton=start_skeleton,
+            end_skeleton=end_skeleton,
+        )
+
         # Combine both skeleton sequences
-        skeleton_seq = self._align_skeletons(start_skeleton, end_skeleton)
+        skeleton_seq = self._align_skeletons(
+            seq_len=seq_len,
+            start_skeleton=start_skeleton,
+            end_skeleton=end_skeleton,
+        )
         print("Skeleton sequence = ", skeleton_seq)
 
         # Ensure fragments only occur once
@@ -171,13 +181,11 @@ class SkeletonBuilder:
         return skeleton_seq, fragments
 
     def _align_skeletons(
-        self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
+        self,
+        seq_len: int,
+        start_skeleton: List[Set[str]],
+        end_skeleton: List[Set[str]],
     ) -> List[Set[str]]:
-        # Select best sequence length
-        seq_len = self.select_sequence_length(
-            start_skeleton=start_skeleton, end_skeleton=end_skeleton
-        )
-
         # Adapt directed skeleton parts to have correct length
         start_skeleton = start_skeleton[:seq_len]
         end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
