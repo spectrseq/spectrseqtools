@@ -10,6 +10,7 @@ from lionelmssq.common import (
     calculate_error_threshold,
     calculate_explanations,
 )
+from lionelmssq.fragment_classification import MAX_VARIANCE
 from lionelmssq.linear_program import LinearProgramInstance
 from lionelmssq.mass_table import DynamicProgrammingTable, compute_sequence_length_bound
 
@@ -300,7 +301,13 @@ class SkeletonBuilder:
                 [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
             )
 
-        return min_mass - 10 <= self.dp_table.seq.su_mass <= max_mass + 10
+        # Check whether mass interval defined by skeleton contains sequence mass
+        # Use MAX_VARIANCE to accommodate for uncertainty in sequence mass selection
+        return (
+            min_mass - MAX_VARIANCE
+            <= self.dp_table.seq.su_mass
+            <= max_mass + MAX_VARIANCE
+        )
 
     def select_sequence_length_with_jaccard(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
