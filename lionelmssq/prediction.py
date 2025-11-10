@@ -210,11 +210,9 @@ class Predictor:
             )
 
             # Check whether fragment can feasibly be aligned to skeleton
-            if not filter_instance.check_feasibility(
-                solver_params=solver_params,
-                threshold=self.dp_table.tolerance
-                * fragments.item(idx, "observed_mass"),
-            )[1]:
+            if filter_instance.minimize_error(
+                solver_params=solver_params
+            ) > self.dp_table.tolerance * fragments.item(idx, "observed_mass"):
                 is_invalid.append(fragments.item(idx, "index"))
 
         # Return only valid fragments

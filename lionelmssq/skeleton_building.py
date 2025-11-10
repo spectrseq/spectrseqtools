@@ -229,7 +229,7 @@ class SkeletonBuilder:
                 end_skeleton=end_skeleton,
             )
             # Determine LP score for terminal-fragment alignment
-            value, res = self.validate_sequence_length_with_lp(
+            value = self.determine_lp_score(
                 start_fragments=start_fragments.clone(),
                 end_fragments=end_fragments.clone(),
                 skeleton_seq=seq,
@@ -247,7 +247,7 @@ class SkeletonBuilder:
 
         return best_len
 
-    def validate_sequence_length_with_lp(
+    def determine_lp_score(
         self,
         start_fragments: pl.DataFrame,
         end_fragments: pl.DataFrame,
@@ -271,24 +271,36 @@ class SkeletonBuilder:
             (len(skeleton_seq) - pl.col("max_end")).alias("max_end"),
         )
 
-        fragments = pl.concat([start_fragments, end_fragments])
-
         # Initialize LP instance for terminal fragment
         try:
-            filter_instance = LinearProgramInstance(
-                fragments=fragments,
+            lp_instance = LinearProgramInstance(
+                fragments=pl.concat([start_fragments, end_fragments]),
                 dp_table=self.dp_table,
                 skeleton_seq=skeleton_seq,
             )
         except Exception:
-            return np.inf, False
+            return np.inf
 
-        # Check whether fragments can feasibly be aligned to skeleton
-        return filter_instance.check_feasibility(
-            solver_params=solver_params,
-            threshold=self.dp_table.tolerance
-            * fragments.select("observed_mass").sum().item(),
-        )
+        # Return minimum error when fragments can feasibly be aligned to skeleton
+        return lp_instance.minimize_error(solver_params=solver_params)
+
+    def validate_sequence_length_by_mass(
+        self,
+        start_skeleton: List[Set[str]],
+        end_skeleton: List[Set[str]],
+        nuc_masses: dict,
+    ) -> bool:
+        min_mass = 0
+        max_mass = 0
+        for start_nucs, end_nucs in zip(start_skeleton, end_skeleton):
+            min_mass += min(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+            max_mass += max(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+
+        return min_mass - 10 <= self.dp_table.seq.su_mass <= max_mass + 10
 
     def select_sequence_length_with_jaccard(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
@@ -346,24 +358,6 @@ class SkeletonBuilder:
             )
 
         return best_len
-
-    def validate_sequence_length_by_mass(
-        self,
-        start_skeleton: List[Set[str]],
-        end_skeleton: List[Set[str]],
-        nuc_masses: dict,
-    ) -> bool:
-        min_mass = 0
-        max_mass = 0
-        for start_nucs, end_nucs in zip(start_skeleton, end_skeleton):
-            min_mass += min(
-                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
-            )
-            max_mass += max(
-                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
-            )
-
-        return min_mass - 10 <= self.dp_table.seq.su_mass <= max_mass + 10
 
     def explain_bin_differences(
         self,
