@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from itertools import chain, groupby
 from typing import List, Optional, Set, Tuple
 from loguru import logger
+import numpy as np
 import polars as pl
 
 from lionelmssq.common import (
@@ -9,6 +10,8 @@ from lionelmssq.common import (
     calculate_error_threshold,
     calculate_explanations,
 )
+from lionelmssq.fragment_classification import MAX_VARIANCE
+from lionelmssq.linear_program import LinearProgramInstance
 from lionelmssq.mass_table import DynamicProgrammingTable, compute_sequence_length_bound
 
 
@@ -18,7 +21,7 @@ class SkeletonBuilder:
     dp_table: DynamicProgrammingTable
 
     def build_skeleton(
-        self, fragments: pl.DataFrame
+        self, fragments: pl.DataFrame, solver_params: dict
     ) -> Tuple[List[Set[str]], pl.DataFrame]:
         # Build skeleton sequence from 5'-end
         start_skeleton, start_fragments = self._predict_skeleton(
@@ -35,8 +38,27 @@ class SkeletonBuilder:
         end_skeleton = end_skeleton[::-1]
         print("Skeleton sequence end = ", end_skeleton)
 
+        # Select best sequence length with LP
+        seq_len = self.select_sequence_length_with_lp(
+            start_fragments=start_fragments,
+            end_fragments=end_fragments,
+            start_skeleton=start_skeleton,
+            end_skeleton=end_skeleton,
+            solver_params=solver_params,
+        )
+        if seq_len < 1:
+            # Use Jaccard-based method as backup (in case LP does not work)
+            seq_len = self.select_sequence_length_with_jaccard(
+                start_skeleton=start_skeleton,
+                end_skeleton=end_skeleton,
+            )
+
         # Combine both skeleton sequences
-        skeleton_seq = self._align_skeletons(start_skeleton, end_skeleton)
+        skeleton_seq = combine_skeleton_sequences(
+            seq_len=seq_len,
+            start_skeleton=start_skeleton,
+            end_skeleton=end_skeleton,
+        )
         print("Skeleton sequence = ", skeleton_seq)
 
         # Ensure fragments only occur once
@@ -170,34 +192,124 @@ class SkeletonBuilder:
 
         return skeleton_seq, fragments
 
-    def _align_skeletons(
-        self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
-    ) -> List[Set[str]]:
-        # Select best sequence length
-        seq_len = self.select_sequence_length(
-            start_skeleton=start_skeleton, end_skeleton=end_skeleton
+    def select_sequence_length_with_lp(
+        self,
+        start_skeleton: List[Set[str]],
+        end_skeleton: List[Set[str]],
+        start_fragments: pl.DataFrame,
+        end_fragments: pl.DataFrame,
+        solver_params: dict,
+    ) -> int:
+        # Reduce nucleotide alphabet based on skeleton parts
+        nucleotides = {
+            nuc
+            for skeleton_pos in start_skeleton + end_skeleton
+            for nuc in skeleton_pos
+        }
+        self.dp_table.adapt_individual_modification_rates_by_alphabet_reduction(
+            nucleotides
         )
 
-        # Adapt directed skeleton parts to have correct length
-        start_skeleton = start_skeleton[:seq_len]
-        end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
+        # Initialize nucleotide mass dict
+        nucleoside_masses = {
+            mass.names[0]: mass.mass * self.dp_table.precision
+            for mass in self.dp_table.masses[1:]
+        }
 
-        skeleton_seq = [set() for _ in range(seq_len)]
-        for i in range(seq_len):
-            # Preferentially consider nucleotides where start and end agree
-            skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
+        # Determine lower and upper bound
+        min_len = compute_sequence_length_bound(dp_table=self.dp_table, dir="lower")
+        max_len = compute_sequence_length_bound(dp_table=self.dp_table, dir="upper")
 
-            # If the intersection is empty, use the union instead
-            if not skeleton_seq[i]:
-                skeleton_seq[i] = start_skeleton[i].union(end_skeleton[i])
+        # Determine sequence length with best LP score
+        best_len = -1
+        best_val = np.inf
+        for len_cand in range(min_len, max_len + 1):
+            seq = combine_skeleton_sequences(
+                seq_len=len_cand,
+                start_skeleton=start_skeleton,
+                end_skeleton=end_skeleton,
+            )
+            # Determine LP score for terminal-fragment alignment
+            value = self.determine_lp_score(
+                start_fragments=start_fragments.clone(),
+                end_fragments=end_fragments.clone(),
+                skeleton_seq=seq,
+                solver_params=solver_params,
+            )
 
-        # TODO: Its more complicated, since if two positions are ambiguous,
-        #  they are not independent. If one nucleotide is selected this way,
-        #  then the same nucleotide cannot be selected in the other position!
+            # Update best found sequence length if needed
+            if value < best_val and self.validate_sequence_length_by_mass(
+                start_skeleton=start_skeleton[:len_cand],
+                end_skeleton=end_skeleton[len(end_skeleton) - len_cand :],
+                nuc_masses=nucleoside_masses,
+            ):
+                best_val = value
+                best_len = len_cand
 
-        return skeleton_seq
+        return best_len
 
-    def select_sequence_length(
+    def determine_lp_score(
+        self,
+        start_fragments: pl.DataFrame,
+        end_fragments: pl.DataFrame,
+        skeleton_seq: list,
+        solver_params: dict,
+    ) -> pl.DataFrame:
+        # Ensure fragments only occur once
+        end_fragments = end_fragments.filter(
+            ~pl.col("index").is_in(start_fragments.get_column("index").to_list())
+        )
+
+        # Remove indexing of the next pos for START fragments
+        start_fragments = start_fragments.with_columns(
+            (pl.col("min_end") - 1).alias("min_end"),
+            (pl.col("max_end") - 1).alias("max_end"),
+        )
+
+        # Remove reverse indexing for END fragments
+        end_fragments = end_fragments.with_columns(
+            (len(skeleton_seq) - pl.col("min_end")).alias("min_end"),
+            (len(skeleton_seq) - pl.col("max_end")).alias("max_end"),
+        )
+
+        # Initialize LP instance for terminal fragment
+        try:
+            lp_instance = LinearProgramInstance(
+                fragments=pl.concat([start_fragments, end_fragments]),
+                dp_table=self.dp_table,
+                skeleton_seq=skeleton_seq,
+            )
+        except Exception:
+            return np.inf
+
+        # Return minimum error when fragments can feasibly be aligned to skeleton
+        return lp_instance.minimize_error(solver_params=solver_params)
+
+    def validate_sequence_length_by_mass(
+        self,
+        start_skeleton: List[Set[str]],
+        end_skeleton: List[Set[str]],
+        nuc_masses: dict,
+    ) -> bool:
+        min_mass = 0
+        max_mass = 0
+        for start_nucs, end_nucs in zip(start_skeleton, end_skeleton):
+            min_mass += min(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+            max_mass += max(
+                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
+            )
+
+        # Check whether mass interval defined by skeleton contains sequence mass
+        # Use MAX_VARIANCE to accommodate for uncertainty in sequence mass selection
+        return (
+            min_mass - MAX_VARIANCE
+            <= self.dp_table.seq.su_mass
+            <= max_mass + MAX_VARIANCE
+        )
+
+    def select_sequence_length_with_jaccard(
         self, start_skeleton: List[Set[str]], end_skeleton: List[Set[str]]
     ) -> int:
         # Reduce nucleotide alphabet based on skeleton parts
@@ -253,24 +365,6 @@ class SkeletonBuilder:
             )
 
         return best_len
-
-    def validate_sequence_length_by_mass(
-        self,
-        start_skeleton: List[Set[str]],
-        end_skeleton: List[Set[str]],
-        nuc_masses: dict,
-    ) -> bool:
-        min_mass = 0
-        max_mass = 0
-        for start_nucs, end_nucs in zip(start_skeleton, end_skeleton):
-            min_mass += min(
-                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
-            )
-            max_mass += max(
-                [nuc_masses[nuc] for nuc in (start_nucs | end_nucs)], default=0
-            )
-
-        return min_mass - 10 <= self.dp_table.seq.su_mass <= max_mass + 10
 
     def explain_bin_differences(
         self,
@@ -392,3 +486,28 @@ def jaccard_index(input: Tuple[Set[str], Set[str]]) -> float:
 
     # Return Jaccard score
     return len(input[0].intersection(input[1])) / len(input[0].union(input[1]))
+
+
+def combine_skeleton_sequences(
+    seq_len: int,
+    start_skeleton: List[Set[str]],
+    end_skeleton: List[Set[str]],
+) -> List[Set[str]]:
+    # Adapt directed skeleton parts to have correct length
+    start_skeleton = start_skeleton[:seq_len]
+    end_skeleton = end_skeleton[len(end_skeleton) - seq_len :]
+
+    skeleton_seq = [set() for _ in range(seq_len)]
+    for i in range(seq_len):
+        # Preferentially consider nucleotides where start and end agree
+        skeleton_seq[i] = start_skeleton[i].intersection(end_skeleton[i])
+
+        # If the intersection is empty, use the union instead
+        if not skeleton_seq[i]:
+            skeleton_seq[i] = start_skeleton[i].union(end_skeleton[i])
+
+    # TODO: Its more complicated, since if two positions are ambiguous,
+    #  they are not independent. If one nucleotide is selected this way,
+    #  then the same nucleotide cannot be selected in the other position!
+
+    return skeleton_seq

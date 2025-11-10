@@ -224,10 +224,10 @@ class LinearProgramInstance:
 
         return problem
 
-    def check_feasibility(self, solver_params, threshold):
+    def minimize_error(self, solver_params: dict) -> float:
         solver = getSolver(**solver_params, timeLimit=5)
         _ = self.problem.solve(solver)
-        return self.problem.objective.value() <= threshold
+        return self.problem.objective.value()
 
     def evaluate(self, solver_params):
         solver = getSolver(**solver_params, timeLimit=30)

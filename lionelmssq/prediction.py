@@ -62,7 +62,9 @@ class Predictor:
         )
 
         # Build skeleton sequence from both sides and align them into final sequence
-        skeleton_seq, fragments = skeleton_builder.build_skeleton(fragments)
+        skeleton_seq, fragments = skeleton_builder.build_skeleton(
+            fragments=fragments, solver_params=solver_params
+        )
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
@@ -208,11 +210,9 @@ class Predictor:
             )
 
             # Check whether fragment can feasibly be aligned to skeleton
-            if not filter_instance.check_feasibility(
-                solver_params=solver_params,
-                threshold=self.dp_table.tolerance
-                * fragments.item(idx, "observed_mass"),
-            ):
+            if filter_instance.minimize_error(
+                solver_params=solver_params
+            ) > self.dp_table.tolerance * fragments.item(idx, "observed_mass"):
                 is_invalid.append(fragments.item(idx, "index"))
 
         # Return only valid fragments
