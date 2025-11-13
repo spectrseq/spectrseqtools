@@ -188,7 +188,7 @@ def deconvolute(file_path: str, params: dict) -> pl.DataFrame:
         if scan.ms_level != 2:
             continue
         # If it is an MS2 scan, skip it if the precursor charge is lower than MIN_MS1_CHARGE_STATE
-        if scan.precursor_information.charge < MIN_MS1_CHARGE_STATE:
+        if not isinstance(scan.precursor_information.charge, int) or scan.precursor_information.charge < MIN_MS1_CHARGE_STATE:
             continue
 
         # Deconvolute scan to get list of deisotoped peaks
