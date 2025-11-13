@@ -62,9 +62,25 @@ class Predictor:
         )
 
         # Build skeleton sequence from both sides and align them into final sequence
-        skeleton_seq, fragments = skeleton_builder.build_skeleton(
-            fragments=fragments, solver_params=solver_params
-        )
+        try:
+            skeleton_seq, fragments = skeleton_builder.build_skeleton(
+                fragments=fragments, solver_params=solver_params
+            )
+        except Exception:
+            return Prediction(
+                sequence=[],
+                fragments=pl.DataFrame(
+                    schema=[
+                        "left",
+                        "right",
+                        "observed_mass",
+                        "standard_unit_mass",
+                        "predicted_mass",
+                        "predicted_diff",
+                        "predicted_seq",
+                    ]
+                ),
+            )
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))

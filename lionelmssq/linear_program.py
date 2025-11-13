@@ -231,9 +231,21 @@ class LinearProgramInstance:
 
     def evaluate(self, solver_params):
         solver = getSolver(**solver_params, timeLimit=30)
-        # gurobi.msg = False
-        # TODO the returned value resembles the accuracy of the prediction
-        _ = self.problem.solve(solver)
+        try:
+            # TODO: Make returned value resemble prediction accuracy
+            _ = self.problem.solve(solver)
+        except Exception:
+            return [], pl.DataFrame(
+                schema=[
+                    "left",
+                    "right",
+                    "observed_mass",
+                    "standard_unit_mass",
+                    "predicted_mass",
+                    "predicted_diff",
+                    "predicted_seq",
+                ]
+            )
 
         # Interpret solution
         seq = [self._get_base(i) for i in range(self.seq_len)]
