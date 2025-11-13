@@ -12,6 +12,7 @@ from lionelmssq.common import initialize_raw_file_iterator
 rt = get_mono()
 
 PREPROCESS_TOL = 10e-6
+MIN_MS1_CHARGE_STATE = 3
 # TODO: Estimate the default value from sequence length (IMP: Should be
 #  large enough to cover the charge states of the precursors!
 DEFAULT_CHARGE_VALUE = 30
@@ -185,6 +186,9 @@ def deconvolute(file_path: str, params: dict) -> pl.DataFrame:
 
         # Skip scan if it is no MS2 scan
         if scan.ms_level != 2:
+            continue
+        # If it is an MS2 scan, skip it if the precursor charge is lower than MIN_MS1_CHARGE_STATE
+        if scan.precursor_information.charge < MIN_MS1_CHARGE_STATE:
             continue
 
         # Deconvolute scan to get list of deisotoped peaks
