@@ -77,7 +77,13 @@ def test_testcase(testcase):
             (pl.col("observed_mass").alias("observed_mass")),
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
+
+        # Read singletons if given
         singletons = None
+        if os.path.isfile(base_path / "fragments.singletons.tsv"):
+            singletons = pl.read_csv(
+                base_path / "fragments.singletons.tsv", separator="\t"
+            )
 
     print("Singletons identified during preprocessing:", singletons)
     print()
