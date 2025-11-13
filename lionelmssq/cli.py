@@ -1,3 +1,4 @@
+import os
 import polars as pl
 import yaml
 from pathlib import Path
@@ -82,7 +83,13 @@ def main():
             print("TSV file found. Proceeding without preprocessing.")
             # Read already preprocessed fragments
             fragments = pl.read_csv(settings.fragments, separator="\t")
+
+            # Read singletons if given
             singletons = None
+            if os.path.isfile(fragment_dir / f"{file_prefix}.singletons.tsv"):
+                singletons = pl.read_csv(
+                    fragment_dir / f"{file_prefix}.singletons.tsv", separator="\t"
+                )
         case _:
             raise NotImplementedError(
                 "Support is currently only given for TSV or RAW files."
@@ -92,9 +99,6 @@ def main():
     print()
 
     explanation_masses = EXPLANATION_MASSES
-
-    print("Original base alphabet:", explanation_masses)
-    print()
 
     # Filter by singletons
     if singletons is not None:

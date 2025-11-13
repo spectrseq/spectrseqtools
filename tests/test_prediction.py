@@ -77,7 +77,13 @@ def test_testcase(testcase):
             (pl.col("observed_mass").alias("observed_mass")),
             (pl.col("true_mass_with_backbone").alias("true_mass")),
         )
+
+        # Read singletons if given
         singletons = None
+        if os.path.isfile(base_path / "fragments.singletons.tsv"):
+            singletons = pl.read_csv(
+                base_path / "fragments.singletons.tsv", separator="\t"
+            )
 
     print("Singletons identified during preprocessing:", singletons)
     print()
@@ -85,9 +91,6 @@ def test_testcase(testcase):
     intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
     explanation_masses = EXPLANATION_MASSES
     matching_threshold = MATCHING_THRESHOLD
-
-    print("Original base alphabet:", explanation_masses)
-    print()
 
     # Filter by singletons
     if singletons is not None:
