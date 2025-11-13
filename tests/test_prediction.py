@@ -14,6 +14,7 @@ from lionelmssq.fragment_classification import classify_fragments
 from lionelmssq.preprocessing import preprocess
 from lionelmssq.masses import (
     COMPRESSION_RATE,
+    DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
     TOLERANCE,
     MATCHING_THRESHOLD,
@@ -88,7 +89,11 @@ def test_testcase(testcase):
     print("Singletons identified during preprocessing:", singletons)
     print()
 
-    intensity_cutoff = meta["intensity_cutoff"] if "intensity_cutoff" in meta else 1e4
+    intensity_cutoff = (
+        meta["intensity_cutoff"]
+        if ("intensity_cutoff" in meta)
+        else DEFAULT_INTENSITY_CUTOFF
+    )
     explanation_masses = EXPLANATION_MASSES
     matching_threshold = MATCHING_THRESHOLD
 

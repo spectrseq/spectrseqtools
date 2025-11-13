@@ -9,6 +9,9 @@ _COLS = ["nucleoside", "canonical_name", "monoisotopic_mass", "modification_rate
 #  make it universally applicable
 UNMODIFIED_BASES = ["A", "C", "G", "U"]
 
+# Set default value for intensity cutoff
+DEFAULT_INTENSITY_CUTOFF = 1.15e-6
+
 
 # Set number of binary-compressed masses per integer cell in DP table
 COMPRESSION_RATE = 32

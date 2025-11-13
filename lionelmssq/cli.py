@@ -9,6 +9,7 @@ from lionelmssq.fragment_classification import classify_fragments
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.masses import (
     COMPRESSION_RATE,
+    DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
     MATCHING_THRESHOLD,
     TOLERANCE,
@@ -52,7 +53,7 @@ def main():
     with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
 
-    intensity_cutoff = meta.setdefault("intensity_cutoff", 1e6)
+    intensity_cutoff = meta.setdefault("intensity_cutoff", DEFAULT_INTENSITY_CUTOFF)
     start_tag = meta.setdefault("label_mass_5T", 555.1294)
     end_tag = meta.setdefault("label_mass_3T", 455.1491)
 
