@@ -92,9 +92,6 @@ def test_testcase(testcase):
     explanation_masses = EXPLANATION_MASSES
     matching_threshold = MATCHING_THRESHOLD
 
-    print("Original base alphabet:", explanation_masses)
-    print()
-
     # Filter by singletons
     if singletons is not None:
         explanation_masses = explanation_masses.with_columns(

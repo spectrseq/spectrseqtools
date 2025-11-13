@@ -100,9 +100,6 @@ def main():
 
     explanation_masses = EXPLANATION_MASSES
 
-    print("Original base alphabet:", explanation_masses)
-    print()
-
     # Filter by singletons
     if singletons is not None:
         explanation_masses = explanation_masses.with_columns(
