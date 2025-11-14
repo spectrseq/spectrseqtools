@@ -111,9 +111,7 @@ def test_testcase(testcase):
     if singletons is not None:
         # Map singletons to their mass representative
         singletons = singletons.with_columns(
-            pl.col("nucleoside")
-            .map_elements(function=lambda x: NUC_REPS[x], return_dtype=str)
-            .alias("nucleoside")
+            pl.col("nucleoside").replace_strict(NUC_REPS).alias("nucleoside")
         )
 
         # Select only bases found in singletons
