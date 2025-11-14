@@ -87,6 +87,17 @@ def initialize_nucleotide_df() -> pl.DataFrame:
 
 EXPLANATION_MASSES = initialize_nucleotide_df()
 
+# Compute dict to map representatives to nucleotides
+_REP_IDX = EXPLANATION_MASSES.get_column_index("nucleoside")
+_LIST_IDX = EXPLANATION_MASSES.get_column_index("nucleoside_list")
+NUC_REPS = {
+    **{
+        nuc: row[_REP_IDX]
+        for row in EXPLANATION_MASSES.rows()
+        for nuc in row[_LIST_IDX]
+    }
+}
+
 
 # METHOD: Precompute all weight changes caused by breakages and adapt the
 # target masses accordingly while finding compositions explaining it.

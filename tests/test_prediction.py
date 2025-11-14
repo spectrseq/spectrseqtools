@@ -16,6 +16,7 @@ from lionelmssq.masses import (
     COMPRESSION_RATE,
     DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
+    NUC_REPS,
     TOLERANCE,
     MATCHING_THRESHOLD,
     UNMODIFIED_BASES,
@@ -28,16 +29,6 @@ _TESTCASES = importlib.resources.files("tests") / "testcases"
 
 TESTS = ["test_01", "test_02", "test_03"]
 # TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_06", "test_07"]
-
-_REP_IDX = EXPLANATION_MASSES.get_column_index("nucleoside")
-_LIST_IDX = EXPLANATION_MASSES.get_column_index("nucleoside_list")
-NUC_REPS = {
-    **{
-        nuc: row[_REP_IDX]
-        for row in EXPLANATION_MASSES.rows()
-        for nuc in row[_LIST_IDX]
-    }
-}
 
 
 @pytest.mark.parametrize(

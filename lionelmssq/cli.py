@@ -12,23 +12,13 @@ from lionelmssq.masses import (
     DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
     MATCHING_THRESHOLD,
+    NUC_REPS,
     TOLERANCE,
     UNMODIFIED_BASES,
     build_breakage_dict,
 )
 from lionelmssq.prediction import Predictor
 from lionelmssq.preprocessing import preprocess
-
-
-_REP_IDX = EXPLANATION_MASSES.get_column_index("nucleoside")
-_LIST_IDX = EXPLANATION_MASSES.get_column_index("nucleoside_list")
-NUC_REPS = {
-    **{
-        nuc: row[_REP_IDX]
-        for row in EXPLANATION_MASSES.rows()
-        for nuc in row[_LIST_IDX]
-    }
-}
 
 
 class Settings(Tap):
