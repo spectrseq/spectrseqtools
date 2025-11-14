@@ -29,6 +29,16 @@ _TESTCASES = importlib.resources.files("tests") / "testcases"
 TESTS = ["test_01", "test_02", "test_03"]
 # TESTS = ["test_01", "test_02", "test_03", "test_04", "test_05", "test_06", "test_07"]
 
+_REP_IDX = EXPLANATION_MASSES.get_column_index("nucleoside")
+_LIST_IDX = EXPLANATION_MASSES.get_column_index("nucleoside_list")
+NUC_REPS = {
+    **{
+        nuc: row[_REP_IDX]
+        for row in EXPLANATION_MASSES.rows()
+        for nuc in row[_LIST_IDX]
+    }
+}
+
 
 @pytest.mark.parametrize(
     "testcase",
@@ -99,6 +109,14 @@ def test_testcase(testcase):
 
     # Filter by singletons
     if singletons is not None:
+        # Map singletons to their mass representative
+        singletons = singletons.with_columns(
+            pl.col("nucleoside")
+            .map_elements(function=lambda x: NUC_REPS[x], return_dtype=str)
+            .alias("nucleoside")
+        )
+
+        # Select only bases found in singletons
         explanation_masses = explanation_masses.with_columns(
             pl.when(
                 pl.col("nucleoside").is_in(

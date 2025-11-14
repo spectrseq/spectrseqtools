@@ -20,6 +20,17 @@ from lionelmssq.prediction import Predictor
 from lionelmssq.preprocessing import preprocess
 
 
+_REP_IDX = EXPLANATION_MASSES.get_column_index("nucleoside")
+_LIST_IDX = EXPLANATION_MASSES.get_column_index("nucleoside_list")
+NUC_REPS = {
+    **{
+        nuc: row[_REP_IDX]
+        for row in EXPLANATION_MASSES.rows()
+        for nuc in row[_LIST_IDX]
+    }
+}
+
+
 class Settings(Tap):
     fragments: Path  # Path to TSV table or RAW data of observed fragments to use for prediction
     meta: Path  # Path to YAML with meta information to use for prediction
@@ -103,6 +114,14 @@ def main():
 
     # Filter by singletons
     if singletons is not None:
+        # Map singletons to their mass representative
+        singletons = singletons.with_columns(
+            pl.col("nucleoside")
+            .map_elements(function=lambda x: NUC_REPS[x], return_dtype=str)
+            .alias("nucleoside")
+        )
+
+        # Select only bases found in singletons
         explanation_masses = explanation_masses.with_columns(
             pl.when(
                 pl.col("nucleoside").is_in(
