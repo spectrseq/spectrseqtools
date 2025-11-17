@@ -9,7 +9,8 @@ from sklearn.metrics import silhouette_score
 from typing import List
 
 from lionelmssq.masses import EXPLANATION_MASSES
-from lionelmssq.deconvolution import PREPROCESS_TOL, MIN_MS1_CHARGE_STATE
+from lionelmssq.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL
+from lionelmssq.singleton_identification import process_scan, RawPeak
 
 rt = get_mono()
 
@@ -19,6 +20,15 @@ class PrecursorPeak:
     mz: float
     intensity: float
     charge: int
+
+@dataclass
+class DeisotopedScanBunch:
+    scan_time: float
+    precursor_raw_mz: float
+    precursor_raw_intensity: float
+    precursor_neutral_mass: float
+    fragments: List[DeisotopedPeak]
+    singleton_raw_peaks: List[RawPeak]
 
 COL_TYPES_PRECURSOR = {
     "scan_time": pl.Float64,
@@ -103,6 +113,45 @@ def get_representative_peaks(raw_file):
                                                                     intensity = pl.col("intensity").sum(),
                                                                     max_charge = pl.col("charge").max()).sort("cluster_group")
     return df_precursors_agg
+
+def filter_precursor_charges(ms2prec, ms2s):
+    ms2prec_final = []
+    ms2prec_charge = []
+    ms2_final = []
+    for p in range(len(ms2prec)):
+        pcharge = 0 if not isinstance(ms2prec[p].charge, int) else ms2prec[p].charge 
+        if pcharge > MIN_MS1_CHARGE_STATE:
+            ms2prec_final.append(ms2prec[p])
+            ms2prec_charge.append(pcharge)
+            ms2_final.append(ms2s[p])
+    return ms2prec_final, ms2prec_charge, ms2_final
+    
+def process_and_deisotope_scan_bunch(ms1, ms2prec_final, ms2prec_charge, ms2_final, decon_params):
+
+    max_prec_charge_state = max(ms2prec_charge)
+    ms1_charge_range = (ms1.polarity, ms1.polarity*max_prec_charge_state)
+    ms1_min_intensity = select_min_intensity(
+                    scan=ms1, min_intensity=decon_params.minimum_intensity
+                )
+    
+    #prec_peaks = [ms1.has_peak(prec_mz, 10) for prec_mz in df_precursor_agg_arr]
+    decon_prec = ms_ditp.deconvolute_peaks(
+                    peaklist=ms1, priority_list = ms2prec_final,
+                    charge_range = ms1_charge_range,
+                    minimum_intensity= ms1_min_intensity,
+                    **decon_params.scan_independent_params,
+                ).priorities#.neutral_mass
+    deisotopedscanbunches = []
+    for i in range(len(ms2prec_final)):
+
+        deisotopedscanbunches.append(DeisotopedScanBunch(
+        scan_time = ms1.scan_time,
+        precursor_raw_mz = ms2prec_final[i].mz,
+        precursor_raw_intensity = ms2prec_final[i].peak.intensity,
+        precursor_neutral_mass = 0 if decon_prec[i] is None else decon_prec[i].neutral_mass,
+        fragments = deconvolute_scan(ms2_final[i], params = decon_params),
+        singleton_raw_peaks = process_scan(ms2_final[i])))
+    return deisotopedscanbunches
 
 def calculate_cluster_score(scan_times: pl.Series) -> float:
     """
