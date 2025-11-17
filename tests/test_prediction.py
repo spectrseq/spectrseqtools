@@ -16,6 +16,7 @@ from lionelmssq.masses import (
     COMPRESSION_RATE,
     DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
+    NUC_REPS,
     TOLERANCE,
     MATCHING_THRESHOLD,
     UNMODIFIED_BASES,
@@ -99,6 +100,12 @@ def test_testcase(testcase):
 
     # Filter by singletons
     if singletons is not None:
+        # Map singletons to their mass representative
+        singletons = singletons.with_columns(
+            pl.col("nucleoside").replace_strict(NUC_REPS).alias("nucleoside")
+        )
+
+        # Select only bases found in singletons
         explanation_masses = explanation_masses.with_columns(
             pl.when(
                 pl.col("nucleoside").is_in(
