@@ -1,8 +1,9 @@
 from typing import List
 from lionelmssq.prediction import Prediction
-from lionelmssq.common import parse_nucleosides
+from lionelmssq.common import parse_nucleosides, _NUCLEOSIDE_RE
 import polars as pl
 import altair as alt
+import re
 
 
 def plot_prediction(
@@ -10,13 +11,15 @@ def plot_prediction(
     true_sequence: List[str],
     simulation: pl.DataFrame = None,
 ) -> alt.Chart:
+    true_seq = re.findall(_NUCLEOSIDE_RE, true_sequence)
+    pred_seq = re.findall(_NUCLEOSIDE_RE, prediction.sequence)
     seq_data = pl.DataFrame(
         {
-            "nucleoside": true_sequence + prediction.sequence,
-            "pos": list(range(len(true_sequence)))
-            + list(range(len(prediction.sequence))),
-            "type": ["truth"] * len(true_sequence)
-            + ["predicted"] * len(prediction.sequence),
+            "nucleoside": true_seq + pred_seq,
+            "pos": list(range(len(true_seq)))
+            + list(range(len(pred_seq))),
+            "type": ["truth"] * len(true_seq)
+            + ["predicted"] * len(pred_seq),
         }
     )
 
