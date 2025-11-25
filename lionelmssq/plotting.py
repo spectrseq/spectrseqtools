@@ -16,10 +16,8 @@ def plot_prediction(
     seq_data = pl.DataFrame(
         {
             "nucleoside": true_seq + pred_seq,
-            "pos": list(range(len(true_seq)))
-            + list(range(len(pred_seq))),
-            "type": ["truth"] * len(true_seq)
-            + ["predicted"] * len(pred_seq),
+            "pos": list(range(len(true_seq))) + list(range(len(pred_seq))),
+            "type": ["truth"] * len(true_seq) + ["predicted"] * len(pred_seq),
         }
     )
 
