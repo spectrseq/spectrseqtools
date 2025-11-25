@@ -57,7 +57,6 @@ def test_testcase(testcase):
 
     # Differentiate between raw and already preprocessed input data
     if os.path.isfile(base_path / "fragments.raw"):
-        simulation = False
         # Preprocess raw data
         fragments, singletons, meta = preprocess(
             file_path=base_path / "fragments.raw",
@@ -71,7 +70,6 @@ def test_testcase(testcase):
         # Save singletons detected from raw data
         singletons.write_csv(base_path / "fragments.singletons.tsv", separator="\t")
     else:
-        simulation = True
         # Read already preprocessed fragments
         fragments = pl.read_csv(
             base_path / "fragments.tsv", separator="\t"
@@ -205,14 +203,9 @@ def test_testcase(testcase):
     print("Predicted sequence =\t", prediction.sequence)
     print("True sequence =\t\t", true_seq)
 
-    if simulation:
-        plot_prediction(
-            prediction,
-            true_seq,
-        ).save(base_path / "fragments.plot.html")
-        # The above is temporary, until the prediction for the entire intact sequence is fixed!)
-    else:
-        plot_prediction(prediction, true_seq).save(base_path / "fragments.plot.html")
+    plot_prediction(prediction=prediction, true_seq=true_seq).save(
+        base_path / "fragments.plot.html"
+    )
 
     # Save updated meta data
     meta["predicted_sequence"] = "".join(prediction.sequence)

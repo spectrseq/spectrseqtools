@@ -7,16 +7,15 @@ import altair as alt
 
 def plot_prediction(
     prediction: Prediction,
-    true_sequence: List[str],
+    true_seq: List[str],
     simulation: pl.DataFrame = None,
 ) -> alt.Chart:
+    pred_seq = prediction.sequence
     seq_data = pl.DataFrame(
         {
-            "nucleoside": true_sequence + prediction.sequence,
-            "pos": list(range(len(true_sequence)))
-            + list(range(len(prediction.sequence))),
-            "type": ["truth"] * len(true_sequence)
-            + ["predicted"] * len(prediction.sequence),
+            "nucleoside": true_seq + pred_seq,
+            "pos": list(range(len(true_seq))) + list(range(len(pred_seq))),
+            "type": ["truth"] * len(true_seq) + ["predicted"] * len(pred_seq),
         }
     )
 
