@@ -2,9 +2,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Self, Set, Tuple
 import polars as pl
+import re
 from loguru import logger
 
-from lionelmssq.common import calculate_error_threshold, calculate_explanations
+from lionelmssq.common import (
+    calculate_error_threshold,
+    calculate_explanations,
+    _NUCLEOSIDE_RE,
+)
 from lionelmssq.linear_program import LinearProgramInstance
 from lionelmssq.mass_explanation import is_valid_mass
 from lionelmssq.mass_table import DynamicProgrammingTable
@@ -24,7 +29,9 @@ class Prediction:
             assert head.startswith(">")
 
         fragments = pl.read_csv(fragments_path, separator="\t")
-        return Prediction(sequence=seq.strip(), fragments=fragments)
+        return Prediction(
+            sequence=re.findall(_NUCLEOSIDE_RE, seq.strip()), fragments=fragments
+        )
 
 
 class Predictor:

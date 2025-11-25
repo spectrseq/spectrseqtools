@@ -1,18 +1,16 @@
 from typing import List
 from lionelmssq.prediction import Prediction
-from lionelmssq.common import parse_nucleosides, _NUCLEOSIDE_RE
+from lionelmssq.common import parse_nucleosides
 import polars as pl
 import altair as alt
-import re
 
 
 def plot_prediction(
     prediction: Prediction,
-    true_sequence: List[str],
+    true_seq: List[str],
     simulation: pl.DataFrame = None,
 ) -> alt.Chart:
-    true_seq = re.findall(_NUCLEOSIDE_RE, true_sequence)
-    pred_seq = re.findall(_NUCLEOSIDE_RE, prediction.sequence)
+    pred_seq = prediction.sequence
     seq_data = pl.DataFrame(
         {
             "nucleoside": true_seq + pred_seq,
