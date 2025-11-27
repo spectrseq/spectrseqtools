@@ -49,6 +49,7 @@ def main():
     }
 
     # Read additional parameter from meta file
+    settings.fragments = settings.fragments.resolve()
     fragment_dir = settings.fragments.parent
     file_prefix = settings.fragments.stem
     with open(settings.meta, "r") as f:
