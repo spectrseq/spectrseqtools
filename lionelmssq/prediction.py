@@ -4,7 +4,11 @@ from typing import List, Self, Set, Tuple
 import polars as pl
 from loguru import logger
 
-from lionelmssq.common import calculate_error_threshold, calculate_explanations
+from lionelmssq.common import (
+    calculate_error_threshold,
+    calculate_explanations,
+    parse_nucleosides,
+)
 from lionelmssq.linear_program import LinearProgramInstance
 from lionelmssq.mass_explanation import is_valid_mass
 from lionelmssq.mass_table import DynamicProgrammingTable
@@ -24,7 +28,7 @@ class Prediction:
             assert head.startswith(">")
 
         fragments = pl.read_csv(fragments_path, separator="\t")
-        return Prediction(sequence=seq.strip(), fragments=fragments)
+        return Prediction(sequence=parse_nucleosides(seq.strip()), fragments=fragments)
 
 
 class Predictor:
