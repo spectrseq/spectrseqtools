@@ -4,13 +4,11 @@ import polars as pl
 import tqdm as tqdm
 from clr_loader import get_mono
 from dataclasses import dataclass
-from dbscan1d.core import DBSCAN1D
-from sklearn.metrics import silhouette_score
 from typing import List
 
 from lionelmssq.masses import EXPLANATION_MASSES
-from lionelmssq.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL
-from lionelmssq.singleton_identification import process_scan, RawPeak
+from lionelmssq.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL, aggregate_peaks_into_fragments
+from lionelmssq.singleton_identification import process_scan, RawPeak, COL_TYPES_RAW
 
 rt = get_mono()
 
@@ -153,42 +151,67 @@ def process_and_deisotope_scan_bunch(ms1, ms2prec_final, ms2prec_charge, ms2_fin
         singleton_raw_peaks = process_scan(ms2_final[i])))
     return deisotopedscanbunches
 
-def calculate_cluster_score(scan_times: pl.Series) -> float:
+def select_singletons_from_peaks_raw(peak_list: List[RawPeak]) -> pl.DataFrame:
     """
-    Determine score measuring how clustered each scan peaks is.
+    Select candidate singletons based on raw peaks.
 
-    By scan time, use DBSCAN and Silhouette score to evaluate peak clustering.
+    Build dataframe of raw peaks, match theoretical and observed mz,
+    cluster them, and filter the candidates based on their cluster score.
 
     Parameters
     ----------
-    scan_times : polars.Series
-        Scan times.
+    peak_list : List[RawPeak]
+        List containing raw peak data.
 
     Returns
     -------
-    score : float
-        Silhouette score for the DBSCAN cluster of scan times.
+    peak_df : polars.DataFrame
+        Dataframe containing singleton candidates (name, score, and count).
+
     """
-    # Transform series to numpy array
-    scan_times = scan_times.sort().to_numpy()
+    # Build dataframe from peak list
+    peak_df = pl.DataFrame(
+        data=np.array(
+            [[peak.__dict__[key] for key in COL_TYPES_RAW.keys()] for peak in peak_list]
+        ),
+        schema=COL_TYPES_RAW,
+    )
 
-    # Cluster scan times using 1D DBSCAN
-    clusters = DBSCAN1D(eps=0.5, min_samples=10).fit_predict(scan_times)
+    # Match observed m/z to theoretical m/z from the reference table
+    peak_df = peak_df.sort("mz").join_asof(
+        EXPLANATION_MASSES.sort("theoretical_mz"),
+        left_on="mz",
+        right_on="theoretical_mz",
+        strategy="nearest",
+    )
 
-    # Flatten array containing scan times
-    scan_times = scan_times.reshape(-1, 1)
+    # Compute mass error between observed and theoretical m/z
+    peak_df = (
+        peak_df.sort("mz")
+        .with_columns(
+            (abs(pl.col("mz") - pl.col("theoretical_mz")) / pl.col("mz"))
+            .fill_null(0)
+            .fill_nan(0)
+            .lt(PREPROCESS_TOL)
+            .alias("is_match")
+        )
+        .filter(pl.col("is_match"))
+        .sort(["nucleoside", "scan_time"])
+    )
 
-    # Raise error if no cluster was found
-    if len(set(clusters)) == 0:
-        raise NotImplementedError("No cluster was found. This should not be possible.")
+    # Map representative nucleoside, cluster score, and count to each nucleoside group
+    peak_df = peak_df.group_by("nucleoside_list").map_groups(
+        lambda x: pl.DataFrame(
+            {
+                "nucleoside": x["nucleoside_list"][0],
+                "count": len(x["nucleoside_list"]),
+            }
+        )
+    )
 
-    # Return silhouette score if multiple clusters were found
-    if len(set(clusters)) > 1:
-        return silhouette_score(scan_times, clusters)
-
-    # Return minimum score if only noise was found, i.e. cluster == -1
-    if list(set(clusters))[0] == -1:
-        return -1.0
-
-    # Return neutral score if only one (non-noisy) cluster was found
-    return 0.0
+    # Filter candidate singletons by cluster score
+    return (
+        peak_df.filter(pl.col("cluster_score") >= 0).select(
+            ["nucleoside", "cluster_score"]
+        )
+    ).sort("count", descending=True)
