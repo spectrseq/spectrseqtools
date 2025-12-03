@@ -235,6 +235,9 @@ class LinearProgramInstance:
         try:
             # TODO: Make returned value resemble prediction accuracy
             _ = self.problem.solve(solver)
+
+            # Interpret solution
+            seq = [self._get_base(i) for i in range(self.seq_len)]
         except Exception:
             return [], pl.DataFrame(
                 schema=[
@@ -247,9 +250,6 @@ class LinearProgramInstance:
                     "predicted_seq",
                 ]
             )
-
-        # Interpret solution
-        seq = [self._get_base(i) for i in range(self.seq_len)]
 
         fragment_masses = self.fragments.get_column("standard_unit_mass").to_list()
 
