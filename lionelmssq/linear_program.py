@@ -231,7 +231,7 @@ class LinearProgramInstance:
         return np.inf if score is None else score
 
     def evaluate(self, solver_params):
-        solver = getSolver(**solver_params, timeLimit=30)
+        solver = getSolver(**solver_params, timeLimit=60)
 
         # TODO: Make returned value resemble prediction accuracy
         _ = self.problem.solve(solver)
