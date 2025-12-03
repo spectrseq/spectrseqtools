@@ -227,7 +227,8 @@ class LinearProgramInstance:
     def minimize_error(self, solver_params: dict) -> float:
         solver = getSolver(**solver_params, timeLimit=5)
         _ = self.problem.solve(solver)
-        return self.problem.objective.value()
+        score = self.problem.objective.value()
+        return np.inf if score is None else score
 
     def evaluate(self, solver_params):
         solver = getSolver(**solver_params, timeLimit=30)
