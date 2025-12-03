@@ -5,7 +5,7 @@ from lionelmssq.mass_explanation import is_valid_mass
 from lionelmssq.mass_table import DynamicProgrammingTable
 
 
-MAX_VARIANCE = 10
+MAX_VARIANCE = 1
 
 
 # METHOD: For each breakage option that yields a valid mass (i.e. one that
