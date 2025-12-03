@@ -231,25 +231,13 @@ class LinearProgramInstance:
         return np.inf if score is None else score
 
     def evaluate(self, solver_params):
-        solver = getSolver(**solver_params, timeLimit=30)
-        try:
-            # TODO: Make returned value resemble prediction accuracy
-            _ = self.problem.solve(solver)
+        solver = getSolver(**solver_params, timeLimit=60)
 
-            # Interpret solution
-            seq = [self._get_base(i) for i in range(self.seq_len)]
-        except Exception:
-            return [], pl.DataFrame(
-                schema=[
-                    "left",
-                    "right",
-                    "observed_mass",
-                    "standard_unit_mass",
-                    "predicted_mass",
-                    "predicted_diff",
-                    "predicted_seq",
-                ]
-            )
+        # TODO: Make returned value resemble prediction accuracy
+        _ = self.problem.solve(solver)
+
+        # Interpret solution
+        seq = [self._get_base(i) for i in range(self.seq_len)]
 
         fragment_masses = self.fragments.get_column("standard_unit_mass").to_list()
 

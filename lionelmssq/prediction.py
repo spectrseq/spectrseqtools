@@ -30,6 +30,24 @@ class Prediction:
         fragments = pl.read_csv(fragments_path, separator="\t")
         return Prediction(sequence=parse_nucleosides(seq.strip()), fragments=fragments)
 
+    @classmethod
+    def default(cls) -> Self:
+        return Prediction(
+            sequence=[],
+            fragments=pl.DataFrame(
+                schema={
+                    "left": pl.Int64,
+                    "right": pl.Int64,
+                    "observed_mass": pl.Float64,
+                    "standard_unit_mass": pl.Float64,
+                    "predicted_mass": pl.Float64,
+                    "predicted_diff": pl.Float64,
+                    "predicted_seq": pl.String,
+                    "orig_index": pl.UInt32,
+                }
+            ),
+        )
+
 
 class Predictor:
     def __init__(
@@ -71,20 +89,7 @@ class Predictor:
                 fragments=fragments, solver_params=solver_params
             )
         except Exception:
-            return Prediction(
-                sequence=[],
-                fragments=pl.DataFrame(
-                    schema=[
-                        "left",
-                        "right",
-                        "observed_mass",
-                        "standard_unit_mass",
-                        "predicted_mass",
-                        "predicted_diff",
-                        "predicted_seq",
-                    ]
-                ),
-            )
+            return Prediction.default()
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
@@ -147,7 +152,11 @@ class Predictor:
             skeleton_seq=skeleton_seq,
         )
 
-        return Prediction(*lp_instance.evaluate(solver_params))
+        # Remove ambiguities in skeleton by solving LP instance
+        try:
+            return Prediction(*lp_instance.evaluate(solver_params))
+        except Exception:
+            return Prediction.default()
 
     def filter_by_explanation(
         self, fragments: pl.DataFrame
