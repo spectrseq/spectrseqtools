@@ -147,7 +147,24 @@ class Predictor:
             skeleton_seq=skeleton_seq,
         )
 
-        return Prediction(*lp_instance.evaluate(solver_params))
+        # Remove ambiguities in skeleton by solving LP instance
+        try:
+            return Prediction(*lp_instance.evaluate(solver_params))
+        except Exception:
+            return Prediction(
+                sequence=[],
+                fragments=pl.DataFrame(
+                    schema=[
+                        "left",
+                        "right",
+                        "observed_mass",
+                        "standard_unit_mass",
+                        "predicted_mass",
+                        "predicted_diff",
+                        "predicted_seq",
+                    ]
+                ),
+            )
 
     def filter_by_explanation(
         self, fragments: pl.DataFrame
