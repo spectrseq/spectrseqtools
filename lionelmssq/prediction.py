@@ -146,14 +146,14 @@ class Predictor:
                 "No end fragments provided, this will likely lead to suboptimal results."
             )
 
-        lp_instance = LinearProgramInstance(
-            fragments=fragments,
-            dp_table=self.dp_table,
-            skeleton_seq=skeleton_seq,
-        )
-
         # Remove ambiguities in skeleton by solving LP instance
         try:
+            lp_instance = LinearProgramInstance(
+                fragments=fragments,
+                dp_table=self.dp_table,
+                skeleton_seq=skeleton_seq,
+            )
+
             return Prediction(*lp_instance.evaluate(solver_params))
         except Exception:
             return Prediction.default()
