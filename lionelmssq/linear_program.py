@@ -225,13 +225,22 @@ class LinearProgramInstance:
         return problem
 
     def minimize_error(self, solver_params: dict) -> float:
-        solver = getSolver(**solver_params, timeLimit=5)
+        # Set correct timeout
+        solver_params["fixed"]["timeLimit"] = solver_params["timeLimit(short)"]
+
+        # Initialize solver
+        solver = getSolver(**solver_params["fixed"])
+
         _ = self.problem.solve(solver)
         score = self.problem.objective.value()
         return np.inf if score is None else score
 
     def evaluate(self, solver_params):
-        solver = getSolver(**solver_params, timeLimit=60)
+        # Set correct timeout
+        solver_params["fixed"]["timeLimit"] = solver_params["timeLimit(long)"]
+
+        # Initialize solver
+        solver = getSolver(**solver_params["fixed"])
 
         # TODO: Make returned value resemble prediction accuracy
         _ = self.problem.solve(solver)

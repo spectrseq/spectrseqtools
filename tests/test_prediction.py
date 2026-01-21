@@ -49,10 +49,14 @@ def test_testcase(testcase):
 
     # Set parameters for LP solver
     solver_params = {
-        "solver": select_solver(os.environ.get("SOLVER", "cbc")),
-        # "solver": select_solver(os.environ.get("SOLVER", "gurobi")),
-        "threads": 1,
-        "msg": False,
+        "fixed": {
+            "solver": select_solver(os.environ.get("SOLVER", "cbc")),
+            # "solver": select_solver(os.environ.get("SOLVER", "gurobi")),
+            "threads": 1,
+            "msg": False,
+        },
+        "timeLimit(short)": 5,
+        "timeLimit(long)": 60,
     }
 
     # Differentiate between raw and already preprocessed input data
