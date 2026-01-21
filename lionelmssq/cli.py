@@ -35,6 +35,8 @@ class Settings(Tap):
     solver: Literal["gurobi", "cbc"] = (
         "gurobi"  # Solver to use for the optimization problem
     )
+    lp_timeout_short: int = 5  # Time-out for shorter solving of LP instances
+    lp_timeout_long: int = 60  # Time-out for longer solving of LP instances
     threads: int = 1  # Number of threads to use for the optimization problem
 
 
@@ -43,9 +45,13 @@ def main():
 
     # Set parameters for LP solver
     solver_params = {
-        "solver": select_solver(settings.solver),
-        "threads": settings.threads,
-        "msg": False,
+        "fixed": {
+            "solver": select_solver(settings.solver),
+            "threads": settings.threads,
+            "msg": False,
+        },
+        "timeLimit(short)": settings.lp_timeout_short,
+        "timeLimit(long)": settings.lp_timeout_long,
     }
 
     # Read additional parameter from meta file
