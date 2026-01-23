@@ -3,7 +3,7 @@ import polars as pl
 import yaml
 from pathlib import Path
 from tap import Tap
-from typing import Literal
+from typing import List, Literal
 
 from lionelmssq.fragment_classification import classify_fragments
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
@@ -210,6 +210,38 @@ def main():
     with open(settings.sequence_prediction, "w") as f:
         print(f">{settings.sequence_name}", file=f)
         print("".join(prediction.sequence), file=f)
+        print(f">{settings.sequence_name}_full", file=f)
+        print(format_sequence_to_full_version(seq=prediction.sequence), file=f)
+
+
+def format_sequence_to_full_version(seq: List[str]) -> str:
+    """
+    Format a sequence to its full version (i.e. include alternate nucleotides).
+
+    Parameters
+    ----------
+    seq: List[str]
+        Given predicted sequence.
+
+    Returns
+    -------
+    str
+        Sequence with all alternate nucleotides.
+
+    """
+    output = ""
+    for nuc in seq:
+        alt_nucs = (
+            EXPLANATION_MASSES.filter(pl.col("nucleoside") == nuc)
+            .select("nucleoside_list")
+            .item()
+            .to_list()
+        )
+        if len(alt_nucs) == 1:
+            output += nuc
+        else:
+            output += "[" + "|".join(alt_nucs) + "]"
+    return output
 
 
 def select_solver(solver: str):
