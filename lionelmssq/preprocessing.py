@@ -1,3 +1,4 @@
+import numpy as np
 import polars as pl
 from typing import Tuple
 
@@ -9,6 +10,7 @@ def preprocess(
     file_path: str,
     deconvolution_params: dict,
     meta_params: dict,
+    cutoff_percentile: int = 50,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
     Deconvolute MS2 scans and identify singletons.
@@ -25,6 +27,8 @@ def preprocess(
         Dictionary with parameters for deconvolution.
     meta_params : dict
         Dictionary with meta parameters.
+    cutoff_percentile: int
+        Intensity percentile used as cutoff. Default: 50.
 
     Returns
     -------
@@ -52,6 +56,13 @@ def preprocess(
     )
     meta_params.setdefault("true_sequence", None)
 
+    # Set intensity cutoff
+    meta_params["intensity_cutoff"] = (
+        determine_intensity_percentiles(fragments)
+        .filter(pl.col("statistic") == f"{cutoff_percentile}%")["value"]
+        .to_list()[0]
+    )
+
     return fragments, singletons, meta_params
 
 
@@ -69,6 +80,8 @@ def select_sequence_mass(
     ----------
     fragments : polars.DataFrame
         Dataframe containing deconvoluted fragments.
+    meta_params : dict
+        Dictionary with meta parameters.
 
     Returns
     -------
@@ -92,4 +105,26 @@ def select_sequence_mass(
         )
         .filter((pl.col("intensity") == pl.col("intensity").max()))["neutral_mass"]
         .to_list()[0]
+    )
+
+
+def determine_intensity_percentiles(
+    fragments: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Determine percentile values for intensities in given dataframe.
+
+    Parameters
+    ----------
+    fragments : polars.DataFrame
+        Dataframe containing deconvoluted fragments.
+
+    Returns
+    -------
+    polars.DataFrame
+        Dataframe containing intensity percentile values.
+    """
+    return fragments.get_column("intensity").describe(
+        percentiles=np.linspace(0, 0.95, 20),
+        interpolation="midpoint",
     )
