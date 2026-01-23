@@ -12,6 +12,9 @@ UNMODIFIED_BASES = ["A", "C", "G", "U"]
 # Set default value for intensity cutoff
 DEFAULT_INTENSITY_CUTOFF = 115000
 
+# Set breakage dict modus (full vs only c/y)
+FULL_BREAKAGE_DICT = False
+
 
 # Set number of binary-compressed masses per integer cell in DP table
 COMPRESSION_RATE = 32
@@ -125,6 +128,26 @@ def build_breakage_dict(mass_5_prime, mass_3_prime):
         # Remove H from SU to achieve neutral charge
         "c/y": -element_masses["H+"],
     }
+
+    # Add a/w, b/x, and d/z breakage for full dict version
+    if FULL_BREAKAGE_DICT:
+        # Add PO3H2 to SU to achieve neutral charge
+        start_dict["a/w"] = (
+            element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
+        )
+        # Add P2O to SU to achieve neutral charge
+        start_dict["b/x"] = element_masses["P"] + 2 * element_masses["O"]
+        # Remove OH from SU to achieve neutral charge
+        start_dict["d/z"] = -(element_masses["O"] + element_masses["H+"])
+
+        # Remove PO3H2 from SU to achieve neutral charge
+        end_dict["a/w"] = -(
+            element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
+        )
+        # Remove P2O from SU to achieve neutral charge
+        end_dict["b/x"] = -(element_masses["P"] + 2 * element_masses["O"])
+        # Add OH to SU to achieve neutral charge
+        end_dict["d/z"] = element_masses["O"] + element_masses["H+"]
 
     # Collect all unique breakage-related mass combinations in dict
     breakage_dict = {}
