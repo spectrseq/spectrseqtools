@@ -37,6 +37,7 @@ class Settings(Tap):
     )
     lp_timeout_short: int = 5  # Time-out for shorter solving of LP instances
     lp_timeout_long: int = 60  # Time-out for longer solving of LP instances
+    cutoff_percentile: int = 50  # Intensity percentile used as cutoff
     threads: int = 1  # Number of threads to use for the optimization problem
 
 
@@ -74,6 +75,7 @@ def main():
                 file_path=settings.fragments,
                 deconvolution_params={},
                 meta_params=meta,
+                cutoff_percentile=settings.cutoff_percentile,
             )
             # Save preprocessed fragments
             fragments.write_csv(fragment_dir / f"{file_prefix}.tsv", separator="\t")

@@ -6,13 +6,11 @@ from lionelmssq.deconvolution import deconvolute
 from lionelmssq.singleton_identification import identify_singletons
 
 
-CUTOFF = 50
-
-
 def preprocess(
     file_path: str,
     deconvolution_params: dict,
     meta_params: dict,
+    cutoff_percentile: int = 50,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     """
     Deconvolute MS2 scans and identify singletons.
@@ -29,6 +27,8 @@ def preprocess(
         Dictionary with parameters for deconvolution.
     meta_params : dict
         Dictionary with meta parameters.
+    cutoff_percentile: int
+        Intensity percentile used as cutoff. Default: 50.
 
     Returns
     -------
@@ -59,7 +59,7 @@ def preprocess(
     # Set intensity cutoff
     meta_params["intensity_cutoff"] = (
         determine_intensity_percentiles(fragments)
-        .filter(pl.col("statistic") == f"{CUTOFF}%")["value"]
+        .filter(pl.col("statistic") == f"{cutoff_percentile}%")["value"]
         .to_list()[0]
     )
 
