@@ -5,7 +5,7 @@ import yaml
 import pytest
 from clr_loader import get_mono
 
-from lionelmssq.cli import select_solver
+from lionelmssq.cli import format_sequence_to_full_version, select_solver
 from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
 from lionelmssq.prediction import Predictor
 from lionelmssq.common import parse_nucleosides
@@ -206,6 +206,10 @@ def test_testcase(testcase):
 
     print("Predicted sequence =\t", prediction.sequence)
     print("True sequence =\t\t", true_seq)
+
+    print(
+        "Full sequence =\t\t", format_sequence_to_full_version(seq=prediction.sequence)
+    )
 
     plot_prediction(prediction=prediction, true_seq=true_seq).save(
         base_path / "fragments.plot.html"
