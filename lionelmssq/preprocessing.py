@@ -1,8 +1,12 @@
+import numpy as np
 import polars as pl
 from typing import Tuple
 
 from lionelmssq.deconvolution import deconvolute
 from lionelmssq.singleton_identification import identify_singletons
+
+
+CUTOFF = 50
 
 
 def preprocess(
@@ -52,6 +56,13 @@ def preprocess(
     )
     meta_params.setdefault("true_sequence", None)
 
+    # Set intensity cutoff
+    meta_params["intensity_cutoff"] = (
+        determine_intensity_percentiles(fragments)
+        .filter(pl.col("statistic") == f"{CUTOFF}%")["value"]
+        .to_list()[0]
+    )
+
     return fragments, singletons, meta_params
 
 
@@ -69,6 +80,8 @@ def select_sequence_mass(
     ----------
     fragments : polars.DataFrame
         Dataframe containing deconvoluted fragments.
+    meta_params : dict
+        Dictionary with meta parameters.
 
     Returns
     -------
@@ -92,4 +105,26 @@ def select_sequence_mass(
         )
         .filter((pl.col("intensity") == pl.col("intensity").max()))["neutral_mass"]
         .to_list()[0]
+    )
+
+
+def determine_intensity_percentiles(
+    fragments: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Determine percentile values for intensities in given dataframe.
+
+    Parameters
+    ----------
+    fragments : polars.DataFrame
+        Dataframe containing deconvoluted fragments.
+
+    Returns
+    -------
+    polars.DataFrame
+        Dataframe containing intensity percentile values.
+    """
+    return fragments.get_column("intensity").describe(
+        percentiles=np.linspace(0, 0.95, 20),
+        interpolation="midpoint",
     )
