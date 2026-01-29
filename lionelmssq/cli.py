@@ -38,7 +38,7 @@ class Settings(Tap):
     )
     lp_timeout_short: int = 5  # Time-out for shorter solving of LP instances
     lp_timeout_long: int = 60  # Time-out for longer solving of LP instances
-    cutoff_percentile: int = 50  # Intensity percentile used as cutoff
+    cutoff_percentile: int = 75  # Intensity percentile used as cutoff
     threads: int = 1  # Number of threads to use for the optimization problem
 
 
