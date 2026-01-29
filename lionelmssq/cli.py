@@ -87,7 +87,7 @@ def main():
             )
 
             # Save updated meta data
-            with open(fragment_dir / f"{file_prefix}.meta.yaml", "w") as f:
+            with open(fragment_dir / f"{file_prefix}.preprocessed.meta.yaml", "w") as f:
                 yaml.dump(meta, f)
 
             print("Preprocessing completed!\n")
