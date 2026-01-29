@@ -30,6 +30,7 @@ class Settings(Tap):
     sequence_prediction: (
         Path  # Path to FASTA file that shall contain the predicted sequence
     )
+    output_dir: Path = None  # Output directory (default: input directory)
     sequence_name: str
     modification_rate: float = 0.5  # Maximum percentage of modification in sequence
     solver: Literal["gurobi", "cbc"] = (
@@ -57,7 +58,7 @@ def main():
 
     # Read additional parameter from meta file
     settings.fragments = settings.fragments.resolve()
-    fragment_dir = settings.fragments.parent
+    fragment_dir = settings.fragments.parent if settings.output_dir is None else settings.output_dir
     file_prefix = settings.fragments.stem
     with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
