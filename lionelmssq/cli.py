@@ -56,16 +56,15 @@ def main():
         "timeLimit(long)": settings.lp_timeout_long,
     }
 
-    # Read additional parameter from meta file
     settings.fragments = settings.fragments.resolve()
-    fragment_dir = settings.fragments.parent if settings.output_dir is None else settings.output_dir
+    fragment_dir = (
+        settings.fragments.parent
+        if settings.output_dir is None
+        else settings.output_dir
+    )
     file_prefix = settings.fragments.stem
     with open(settings.meta, "r") as f:
         meta = yaml.safe_load(f)
-
-    intensity_cutoff = meta.setdefault("intensity_cutoff", DEFAULT_INTENSITY_CUTOFF)
-    start_tag = meta.setdefault("label_mass_5T", 555.1294)
-    end_tag = meta.setdefault("label_mass_3T", 455.1491)
 
     # Preprocess data if necessary
     match settings.fragments.suffix:
@@ -138,6 +137,11 @@ def main():
         .otherwise(pl.lit(1.0))
         .alias("modification_rate")
     )
+
+    # Read additional parameter from meta file
+    intensity_cutoff = meta.setdefault("intensity_cutoff", DEFAULT_INTENSITY_CUTOFF)
+    start_tag = meta.setdefault("label_mass_5T", 555.1294)
+    end_tag = meta.setdefault("label_mass_3T", 455.1491)
 
     # Build breakage dict
     breakage_dict = build_breakage_dict(mass_5_prime=start_tag, mass_3_prime=end_tag)
