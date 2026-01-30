@@ -25,7 +25,7 @@ def plot_prediction(
     def create_range(left, right):
         return list(range(left, right))
 
-    fragment_predictions = prediction.fragments.select(
+    fragment_predictions = prediction.fragments.with_columns(
         pl.col("left") - 0.5,
         pl.col("right") - 1 + 0.5,
         pl.struct(["left", "right"])
@@ -126,11 +126,11 @@ def plot_prediction(
         return alt.vconcat(
             *[
                 facet_plots(
-                    df_data.filter(pl.col("index") == i),
-                    data_seq.filter(pl.col("index") == i),
+                    df_data.filter(pl.col("orig_index") == i),
+                    data_seq.filter(pl.col("orig_index") == i),
                     i,
                 )
-                for i in range(max(df_data["index"]) + 1)
+                for i in df_data["orig_index"].to_list()
             ],
             p_final_seq,
             title=alt.TitleParams(
