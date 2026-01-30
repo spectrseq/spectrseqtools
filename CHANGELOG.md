@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/spectrseq/spectrseqtools/compare/v0.1.0...v0.1.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* add package description ([472b3a9](https://github.com/spectrseq/spectrseqtools/commit/472b3a9fd6d3aef9b04e9222f459c9fdbd463faf))
+
 ## 0.1.0 (2026-01-30)
 
 
