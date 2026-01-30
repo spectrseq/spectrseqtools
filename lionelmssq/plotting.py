@@ -142,4 +142,15 @@ def plot_prediction(
             ),
         ).resolve_scale(x="shared")
 
-    return build_layer(df_data=data)
+    start_data = data.filter(pl.col("left") == -0.5)
+    start_layer = build_layer(df_data=start_data)
+
+    end_data = data.filter((pl.col("right") == max_value))
+    end_layer = build_layer(df_data=end_data)
+
+    internal_data = data.filter(
+        (pl.col("right") != max_value) & (pl.col("left") != -0.5)
+    )
+    internal_layer = build_layer(df_data=internal_data)
+
+    return start_layer, end_layer, internal_layer, build_layer(df_data=data)
