@@ -42,7 +42,7 @@ def plot_prediction(
         # .map_elements(reject_none, return_dtype=pl.List(pl.Utf8))
         .map_elements(parse_nucleosides, return_dtype=pl.List(pl.Utf8))
         .alias("fragment_seq"),
-        pl.lit("").alias("type"),
+        pl.lit(None).cast(str).alias("type"),
     ).with_row_index()
 
     if simulation is not None:
