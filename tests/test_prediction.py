@@ -217,7 +217,7 @@ def test_testcase(testcase):
 
     # Save updated meta data
     meta["predicted_sequence"] = "".join(prediction.sequence)
-    with open(base_path / "fragments.meta.yaml", "w") as f:
+    with open(base_path / "fragments.testing.meta.yaml", "w") as f:
         yaml.safe_dump(meta, f)
 
     # Assert whether the sequences match
