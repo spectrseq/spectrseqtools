@@ -98,6 +98,7 @@ def plot_prediction(
             .encode(
                 alt.X(
                     "range",
+                    axis=alt.Axis(grid=False),
                     scale=alt.Scale(domain=[-0.5, max_value]),
                 ).title(None),
                 alt.Y("type").title(str(index)),
@@ -114,7 +115,7 @@ def plot_prediction(
         alt.Chart(seq_data)
         .mark_text(fontWeight="bold")
         .encode(
-            alt.X("pos").title(None),
+            alt.X("pos", axis=alt.Axis(grid=False)).title(None),
             alt.Y("type").title("Final sequence"),
             alt.Text("nucleoside"),
             alt.Color("nucleoside", scale=alt.Scale(scheme="category10")).legend(None),
