@@ -225,11 +225,11 @@ class Predictor:
     ) -> pl.DataFrame:
         is_invalid = []
         for idx in range(len(fragments)):
-            # Skip terminal (i.e. non-internal) fragments
-            if ("START" in fragments.item(idx, "breakage")) or (
-                "END" in fragments.item(idx, "breakage")
-            ):
-                continue
+            # # Skip terminal (i.e. non-internal) fragments
+            # if ("START" in fragments.item(idx, "breakage")) or (
+            #     "END" in fragments.item(idx, "breakage")
+            # ):
+            #     continue
 
             # Initialize LP instance for a singular fragment
             filter_instance = LinearProgramInstance(
