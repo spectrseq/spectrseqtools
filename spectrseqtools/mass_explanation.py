@@ -5,8 +5,8 @@ from itertools import product, combinations_with_replacement, chain
 import polars as pl
 import numpy as np
 
-from lionelmssq.mass_table import DynamicProgrammingTable
-from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
+from spectrseqtools.mass_table import DynamicProgrammingTable
+from spectrseqtools.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 
 @dataclass

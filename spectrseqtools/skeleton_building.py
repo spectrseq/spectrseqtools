@@ -5,14 +5,17 @@ from loguru import logger
 import numpy as np
 import polars as pl
 
-from lionelmssq.common import (
+from spectrseqtools.common import (
     Explanation,
     calculate_error_threshold,
     calculate_explanations,
 )
-from lionelmssq.fragment_classification import MAX_VARIANCE
-from lionelmssq.linear_program import LinearProgramInstance
-from lionelmssq.mass_table import DynamicProgrammingTable, compute_sequence_length_bound
+from spectrseqtools.fragment_classification import MAX_VARIANCE
+from spectrseqtools.linear_program import LinearProgramInstance
+from spectrseqtools.mass_table import (
+    DynamicProgrammingTable,
+    compute_sequence_length_bound,
+)
 
 
 @dataclass

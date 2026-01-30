@@ -2,8 +2,8 @@ import numpy as np
 import polars as pl
 from typing import Tuple
 
-from lionelmssq.deconvolution import deconvolute
-from lionelmssq.singleton_identification import identify_singletons
+from spectrseqtools.deconvolution import deconvolute
+from spectrseqtools.singleton_identification import identify_singletons
 
 
 def preprocess(

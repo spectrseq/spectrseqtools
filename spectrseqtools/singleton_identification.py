@@ -8,8 +8,8 @@ from dbscan1d.core import DBSCAN1D
 from sklearn.metrics import silhouette_score
 from typing import List
 
-from lionelmssq.common import initialize_raw_file_iterator
-from lionelmssq.masses import EXPLANATION_MASSES
+from spectrseqtools.common import initialize_raw_file_iterator
+from spectrseqtools.masses import EXPLANATION_MASSES
 
 rt = get_mono()
 

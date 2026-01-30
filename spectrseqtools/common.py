@@ -4,8 +4,8 @@ import re
 from clr_loader import get_mono
 from typing import List
 
-from lionelmssq.mass_explanation import explain_mass_with_table
-from lionelmssq.mass_table import DynamicProgrammingTable
+from spectrseqtools.mass_explanation import explain_mass_with_table
+from spectrseqtools.mass_table import DynamicProgrammingTable
 
 rt = get_mono()
 

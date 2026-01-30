@@ -5,9 +5,9 @@ from pathlib import Path
 from tap import Tap
 from typing import List, Literal
 
-from lionelmssq.fragment_classification import classify_fragments
-from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
-from lionelmssq.masses import (
+from spectrseqtools.fragment_classification import classify_fragments
+from spectrseqtools.mass_table import DynamicProgrammingTable, SequenceInformation
+from spectrseqtools.masses import (
     COMPRESSION_RATE,
     DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
@@ -17,8 +17,8 @@ from lionelmssq.masses import (
     UNMODIFIED_BASES,
     build_breakage_dict,
 )
-from lionelmssq.prediction import Predictor
-from lionelmssq.preprocessing import preprocess
+from spectrseqtools.prediction import Predictor
+from spectrseqtools.preprocessing import preprocess
 
 
 class Settings(Tap):

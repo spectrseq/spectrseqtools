@@ -4,16 +4,16 @@ from typing import List, Self, Set, Tuple
 import polars as pl
 from loguru import logger
 
-from lionelmssq.common import (
+from spectrseqtools.common import (
     calculate_error_threshold,
     calculate_explanations,
     parse_nucleosides,
 )
-from lionelmssq.linear_program import LinearProgramInstance
-from lionelmssq.mass_explanation import is_valid_mass
-from lionelmssq.mass_table import DynamicProgrammingTable
-from lionelmssq.masses import PHOSPHATE_LINK_MASS
-from lionelmssq.skeleton_building import SkeletonBuilder
+from spectrseqtools.linear_program import LinearProgramInstance
+from spectrseqtools.mass_explanation import is_valid_mass
+from spectrseqtools.mass_table import DynamicProgrammingTable
+from spectrseqtools.masses import PHOSPHATE_LINK_MASS
+from spectrseqtools.skeleton_building import SkeletonBuilder
 
 
 @dataclass

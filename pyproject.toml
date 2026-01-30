@@ -1,5 +1,5 @@
 [project]
-name = "lionelmssq"
+name = "spectrseqtools"
 version = "0.1.0"
 description = ""
 authors = [
@@ -37,10 +37,10 @@ dependencies = [
 ]
 
 [project.scripts]
-lionelmssq = "lionelmssq.cli:main"
+spectrseqtools = "spectrseqtools.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/koesterlab/lionelmssq"
+Homepage = "https://github.com/spectrseq/spectrseqtools"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
