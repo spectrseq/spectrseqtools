@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/spectrseq/spectrseqtools/compare/v0.1.1...v0.1.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* remove superfluous cython dependency ([#50](https://github.com/spectrseq/spectrseqtools/issues/50)) ([5b67a9d](https://github.com/spectrseq/spectrseqtools/commit/5b67a9d7811ef85d4b6de2d2f21a1cdb1ce3e9d0))
+
+
+### Documentation
+
+* readme ([468eac3](https://github.com/spectrseq/spectrseqtools/commit/468eac37bcd44f0ce3d6aa421ac92ca28b5e564f))
+
 ## [0.1.1](https://github.com/spectrseq/spectrseqtools/compare/v0.1.0...v0.1.1) (2026-01-30)
 
 
