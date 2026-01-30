@@ -12,8 +12,10 @@ from spectrseqtools.common import (
 )
 from spectrseqtools.fragment_classification import MAX_VARIANCE
 from spectrseqtools.linear_program import LinearProgramInstance
-from spectrseqtools.mass_table import (DynamicProgrammingTable,
-                           compute_sequence_length_bound)
+from spectrseqtools.mass_table import (
+    DynamicProgrammingTable,
+    compute_sequence_length_bound,
+)
 
 
 @dataclass
