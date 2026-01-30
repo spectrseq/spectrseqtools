@@ -122,19 +122,24 @@ def plot_prediction(
         )
     )
 
-    layered_plots = alt.vconcat(
-        *[
-            facet_plots(
-                data.filter(pl.col("index") == i),
-                data_seq.filter(pl.col("index") == i),
-                i,
-            )
-            for i in range(max(data["index"]) + 1)
-        ],
-        p_final_seq,
-        title=alt.TitleParams(
-            text="fragments", anchor="middle", orient="left", angle=-90, align="center"
-        ),
-    ).resolve_scale(x="shared")
+    def build_layer(df_data: pl.DataFrame) -> alt.Chart:
+        return alt.vconcat(
+            *[
+                facet_plots(
+                    df_data.filter(pl.col("index") == i),
+                    data_seq.filter(pl.col("index") == i),
+                    i,
+                )
+                for i in range(max(df_data["index"]) + 1)
+            ],
+            p_final_seq,
+            title=alt.TitleParams(
+                text="fragments",
+                anchor="middle",
+                orient="left",
+                angle=-90,
+                align="center",
+            ),
+        ).resolve_scale(x="shared")
 
-    return layered_plots
+    return build_layer(df_data=data)
