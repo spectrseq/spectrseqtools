@@ -24,7 +24,7 @@ class Prediction:
     @classmethod
     def from_files(cls, sequence_path: Path, fragments_path: Path) -> Self:
         with open(sequence_path) as f:
-            head, seq = f.readlines()
+            head, seq = f.readlines()[:2]
             assert head.startswith(">")
 
         fragments = pl.read_csv(fragments_path, separator="\t")
