@@ -24,6 +24,8 @@ class Prediction:
     @classmethod
     def from_files(cls, sequence_path: Path, fragments_path: Path) -> Self:
         with open(sequence_path) as f:
+            # Read only lines pertaining sequence in short format (consisting
+            # only of representatives without mass-silent alternatives)
             head, seq = f.readlines()[:2]
             assert head.startswith(">")
 
@@ -225,6 +227,8 @@ class Predictor:
     ) -> pl.DataFrame:
         is_invalid = []
         for idx in range(len(fragments)):
+            # TODO: Add terminal-fragment filter based on LP output of
+            #  sequence-length estimation and reuse the below (for speed-up)
             # # Skip terminal (i.e. non-internal) fragments
             # if ("START" in fragments.item(idx, "breakage")) or (
             #     "END" in fragments.item(idx, "breakage")
