@@ -7,7 +7,7 @@ import pathlib
 import numpy as np
 import os
 
-from lionelmssq.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
+from spectrseqtools.masses import EXPLANATION_MASSES, UNMODIFIED_BASES
 
 
 # Set OS-independent cache directory for DP table

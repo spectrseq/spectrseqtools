@@ -7,7 +7,7 @@ from clr_loader import get_mono
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from lionelmssq.common import initialize_raw_file_iterator
+from spectrseqtools.common import initialize_raw_file_iterator
 
 rt = get_mono()
 

@@ -12,7 +12,7 @@ from itertools import combinations
 import polars as pl
 import numpy as np
 
-from lionelmssq.masses import UNMODIFIED_BASES
+from spectrseqtools.masses import UNMODIFIED_BASES
 
 
 MILP_QUASI_ONE_THRESHOLD = 0.9

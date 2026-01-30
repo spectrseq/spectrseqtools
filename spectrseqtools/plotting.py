@@ -1,8 +1,9 @@
 from typing import List
-from lionelmssq.prediction import Prediction
-from lionelmssq.common import parse_nucleosides
 import polars as pl
 import altair as alt
+
+from spectrseqtools.prediction import Prediction
+from spectrseqtools.common import parse_nucleosides
 
 
 def plot_prediction(

@@ -1,8 +1,8 @@
 import polars as pl
 import numpy as np
 
-from lionelmssq.mass_explanation import is_valid_mass
-from lionelmssq.mass_table import DynamicProgrammingTable
+from spectrseqtools.mass_explanation import is_valid_mass
+from spectrseqtools.mass_table import DynamicProgrammingTable
 
 
 MAX_VARIANCE = 1
