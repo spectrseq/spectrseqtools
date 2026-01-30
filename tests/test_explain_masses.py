@@ -1,16 +1,16 @@
 import pytest
 import polars as pl
 
-from lionelmssq.mass_explanation import (
+from spectrseqtools.mass_explanation import (
     explain_mass_with_recursion,
     explain_mass_with_table,
 )
-from lionelmssq.masses import (
+from spectrseqtools.masses import (
     EXPLANATION_MASSES,
     PHOSPHATE_LINK_MASS,
     TOLERANCE,
 )
-from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
+from spectrseqtools.mass_table import DynamicProgrammingTable, SequenceInformation
 
 
 def get_seq_weight(seq: tuple) -> float:

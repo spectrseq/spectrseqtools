@@ -5,14 +5,14 @@ import yaml
 import pytest
 from clr_loader import get_mono
 
-from lionelmssq.cli import format_sequence_to_full_version, select_solver
-from lionelmssq.mass_table import DynamicProgrammingTable, SequenceInformation
-from lionelmssq.prediction import Predictor
-from lionelmssq.common import parse_nucleosides
-from lionelmssq.plotting import plot_prediction
-from lionelmssq.fragment_classification import classify_fragments
-from lionelmssq.preprocessing import preprocess
-from lionelmssq.masses import (
+from spectrseqtools.cli import format_sequence_to_full_version, select_solver
+from spectrseqtools.mass_table import DynamicProgrammingTable, SequenceInformation
+from spectrseqtools.prediction import Predictor
+from spectrseqtools.common import parse_nucleosides
+from spectrseqtools.plotting import plot_prediction
+from spectrseqtools.fragment_classification import classify_fragments
+from spectrseqtools.preprocessing import preprocess
+from spectrseqtools.masses import (
     COMPRESSION_RATE,
     DEFAULT_INTENSITY_CUTOFF,
     EXPLANATION_MASSES,
