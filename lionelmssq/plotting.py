@@ -80,7 +80,7 @@ def plot_prediction(
     # Remove the rows with empty sets for fragment_seq! This may happen when the LP_relaxation_threshold is too high and because of the LP relaxation, the pribability is low!
 
     def facet_plots(df_mass, df_seq, index):
-        p2 = (
+        p1 = (
             alt.Chart(df_mass)
             .mark_text(align="left", dx=3)
             .encode(
@@ -90,9 +90,9 @@ def plot_prediction(
             )
         )
 
-        p3 = (
+        p2 = (
             alt.Chart(df_seq)
-            .mark_text()
+            .mark_text(fontWeight="bold")
             .encode(
                 alt.X("range").title(None),
                 alt.Y("type").title(str(index)),
@@ -103,11 +103,11 @@ def plot_prediction(
             )
         )
 
-        return alt.layer(p1 + p2 + p3)
+        return alt.layer(p1 + p2)
 
     p_final_seq = (
         alt.Chart(seq_data)
-        .mark_text()
+        .mark_text(fontWeight="bold")
         .encode(
             alt.X("pos").title(None),
             alt.Y("type").title("Final sequence"),
