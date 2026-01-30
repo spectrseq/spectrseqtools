@@ -25,7 +25,7 @@ def plot_prediction(
     def create_range(left, right):
         return list(range(left, right))
 
-    fragment_predictions = prediction.fragments.select(
+    fragment_predictions = prediction.fragments.with_columns(
         pl.col("left") - 0.5,
         pl.col("right") - 1 + 0.5,
         pl.struct(["left", "right"])
@@ -42,7 +42,7 @@ def plot_prediction(
         # .map_elements(reject_none, return_dtype=pl.List(pl.Utf8))
         .map_elements(parse_nucleosides, return_dtype=pl.List(pl.Utf8))
         .alias("fragment_seq"),
-        pl.lit("predicted").alias("type"),
+        pl.lit(None).cast(str).alias("type"),
     ).with_row_index()
 
     if simulation is not None:
@@ -79,17 +79,10 @@ def plot_prediction(
     )
     # Remove the rows with empty sets for fragment_seq! This may happen when the LP_relaxation_threshold is too high and because of the LP relaxation, the pribability is low!
 
+    max_value = data_seq["right"].max()
+
     def facet_plots(df_mass, df_seq, index):
         p1 = (
-            alt.Chart(df_mass)
-            .mark_rule()
-            .encode(
-                alt.X("left").axis(labels=False, ticks=False),
-                alt.X2("right"),
-                alt.Y("type"),  # .title("fragment"),
-            )
-        )
-        p2 = (
             alt.Chart(df_mass)
             .mark_text(align="left", dx=3)
             .encode(
@@ -99,11 +92,15 @@ def plot_prediction(
             )
         )
 
-        p3 = (
+        p2 = (
             alt.Chart(df_seq)
-            .mark_text()
+            .mark_text(fontWeight="bold")
             .encode(
-                alt.X("range").title(None),
+                alt.X(
+                    "range",
+                    axis=alt.Axis(grid=False),
+                    scale=alt.Scale(domain=[-0.5, max_value]),
+                ).title(None),
                 alt.Y("type").title(str(index)),
                 alt.Text("fragment_seq"),
                 alt.Color("fragment_seq", scale=alt.Scale(scheme="category10")).legend(
@@ -112,32 +109,48 @@ def plot_prediction(
             )
         )
 
-        return alt.layer(p1 + p2 + p3)
+        return alt.layer(p1 + p2)
 
     p_final_seq = (
         alt.Chart(seq_data)
-        .mark_text()
+        .mark_text(fontWeight="bold")
         .encode(
-            alt.X("pos").title(None),
+            alt.X("pos", axis=alt.Axis(grid=False)).title(None),
             alt.Y("type").title("Final sequence"),
             alt.Text("nucleoside"),
             alt.Color("nucleoside", scale=alt.Scale(scheme="category10")).legend(None),
         )
     )
 
-    layered_plots = alt.vconcat(
-        *[
-            facet_plots(
-                data.filter(pl.col("index") == i),
-                data_seq.filter(pl.col("index") == i),
-                i,
-            )
-            for i in range(max(data["index"]) + 1)
-        ],
-        p_final_seq,
-        title=alt.TitleParams(
-            text="fragments", anchor="middle", orient="left", angle=-90, align="center"
-        ),
-    ).resolve_scale(x="shared")
+    def build_layer(df_data: pl.DataFrame) -> alt.Chart:
+        return alt.vconcat(
+            *[
+                facet_plots(
+                    df_data.filter(pl.col("orig_index") == i),
+                    data_seq.filter(pl.col("orig_index") == i),
+                    i,
+                )
+                for i in df_data["orig_index"].to_list()
+            ],
+            p_final_seq,
+            title=alt.TitleParams(
+                text="fragments",
+                anchor="middle",
+                orient="left",
+                angle=-90,
+                align="center",
+            ),
+        ).resolve_scale(x="shared")
 
-    return layered_plots
+    start_data = data.filter(pl.col("left") == -0.5)
+    start_layer = build_layer(df_data=start_data)
+
+    end_data = data.filter((pl.col("right") == max_value))
+    end_layer = build_layer(df_data=end_data)
+
+    internal_data = data.filter(
+        (pl.col("right") != max_value) & (pl.col("left") != -0.5)
+    )
+    internal_layer = build_layer(df_data=internal_data)
+
+    return start_layer, end_layer, internal_layer, build_layer(df_data=data)

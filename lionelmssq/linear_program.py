@@ -302,6 +302,10 @@ class LinearProgramInstance:
             [fragment_predictions, self.fragments.select(pl.col("orig_index"))],
             how="horizontal",
         )
+        fragment_predictions = pl.concat(
+            [fragment_predictions, self.fragments.select(pl.col("intensity"))],
+            how="horizontal",
+        )
 
         # reorder fragment predictions so that they match the original order again
         fragment_predictions = fragment_predictions.sort("orig_index")

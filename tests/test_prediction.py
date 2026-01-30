@@ -211,9 +211,12 @@ def test_testcase(testcase):
         "Full sequence =\t\t", format_sequence_to_full_version(seq=prediction.sequence)
     )
 
-    plot_prediction(prediction=prediction, true_seq=true_seq).save(
-        base_path / "fragments.plot.html"
-    )
+    plots = plot_prediction(prediction=prediction, true_seq=true_seq)
+
+    # plots[0].save(base_path / "fragments.plot.start.html")
+    # plots[1].save(base_path / "fragments.plot.end.html")
+    # plots[2].save(base_path / "fragments.plot.internal.html")
+    plots[3].save(base_path / "fragments.plot.html")
 
     # Save updated meta data
     meta["predicted_sequence"] = "".join(prediction.sequence)
