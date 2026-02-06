@@ -6,9 +6,9 @@ from clr_loader import get_mono
 from dataclasses import dataclass
 from typing import List
 
-from lionelmssq.masses import EXPLANATION_MASSES
-from lionelmssq.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL, aggregate_peaks_into_fragments
-from lionelmssq.singleton_identification import process_scan, RawPeak, COL_TYPES_RAW
+from spectrseqtools.masses import EXPLANATION_MASSES
+from spectrseqtools.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL, aggregate_peaks_into_fragments
+from spectrseqtools.singleton_identification import process_scan, RawPeak, COL_TYPES_RAW
 
 rt = get_mono()
 
