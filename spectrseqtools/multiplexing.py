@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import List
 
 from spectrseqtools.masses import EXPLANATION_MASSES
-from spectrseqtools.deconvolution import deconvolute_scan, DeconvolutionParameters, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL, aggregate_peaks_into_fragments
-from spectrseqtools.singleton_identification import process_scan, RawPeak, COL_TYPES_RAW
+from spectrseqtools.deconvolution import deconvolute_scan, DeisotopedPeak, select_min_intensity, MIN_MS1_CHARGE_STATE, PREPROCESS_TOL, aggregate_peaks_into_fragments
+from spectrseqtools.singleton_identification import process_scan, RawPeak, COL_TYPES_RAW, calculate_cluster_score
 
 rt = get_mono()
 
@@ -27,12 +27,21 @@ class DeisotopedScanBunch:
     precursor_neutral_mass: float
     fragments: List[DeisotopedPeak]
     singleton_raw_peaks: List[RawPeak]
+    num_fragments : int
 
 COL_TYPES_PRECURSOR = {
     "scan_time": pl.Float64,
     "mz": pl.Float64,
     "intensity": pl.Float64,
     "charge": pl.Int64,
+}
+
+COL_TYPES_DEISOTOPED_SCAN_BUNCH = {
+    "scan_time": pl.Float64,
+    "precursor_raw_mz": pl.Float64,
+    "precursor_raw_intensity": pl.Float64,
+    "precursor_neutral_mass": pl.Float64,
+    "num_fragments": pl.Int64,
 }
 
 
@@ -141,14 +150,15 @@ def process_and_deisotope_scan_bunch(ms1, ms2prec_final, ms2prec_charge, ms2_fin
                 ).priorities#.neutral_mass
     deisotopedscanbunches = []
     for i in range(len(ms2prec_final)):
-
+        decon_frags = deconvolute_scan(ms2_final[i], params = decon_params)
         deisotopedscanbunches.append(DeisotopedScanBunch(
         scan_time = ms1.scan_time,
         precursor_raw_mz = ms2prec_final[i].mz,
         precursor_raw_intensity = ms2prec_final[i].peak.intensity,
         precursor_neutral_mass = 0 if decon_prec[i] is None else decon_prec[i].neutral_mass,
-        fragments = deconvolute_scan(ms2_final[i], params = decon_params),
-        singleton_raw_peaks = process_scan(ms2_final[i])))
+        fragments = decon_frags,
+        singleton_raw_peaks = process_scan(ms2_final[i]),
+        num_fragments = len(decon_frags),))
     return deisotopedscanbunches
 
 def select_singletons_from_peaks_raw(peak_list: List[RawPeak]) -> pl.DataFrame:
@@ -204,6 +214,7 @@ def select_singletons_from_peaks_raw(peak_list: List[RawPeak]) -> pl.DataFrame:
         lambda x: pl.DataFrame(
             {
                 "nucleoside": x["nucleoside_list"][0],
+                "cluster_score": calculate_cluster_score(x["scan_time"]),
                 "count": len(x["nucleoside_list"]),
             }
         )
@@ -211,7 +222,7 @@ def select_singletons_from_peaks_raw(peak_list: List[RawPeak]) -> pl.DataFrame:
 
     # Filter candidate singletons by cluster score
     return (
-        peak_df.filter(pl.col("cluster_score") >= 0).select(
-            ["nucleoside", "cluster_score"]
-        )
+        peak_df#.filter(pl.col("cluster_score") >= 0).select(
+        #     ["nucleoside", "cluster_score"]
+        # )
     ).sort("count", descending=True)
