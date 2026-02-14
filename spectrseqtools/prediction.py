@@ -119,11 +119,16 @@ class Predictor:
                 )
             ),
         )
-        fragments = self.filter_with_lp(
-            fragments=fragments,
-            skeleton_seq=skeleton_seq,
-            solver_params=solver_params,
-        )
+
+        try:
+            fragments = self.filter_with_lp(
+                fragments=fragments,
+                skeleton_seq=skeleton_seq,
+                solver_params=solver_params,
+            )
+        except Exception:
+            return Prediction.default()
+
         print(
             "Number of internal fragments after filtering: ",
             len(
