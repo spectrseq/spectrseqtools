@@ -120,6 +120,8 @@ class Predictor:
             ),
         )
 
+        # TODO: Investigate LP initialization of highly modified sequences
+        #  for being wrong-length predictions (min/max length issue?)
         try:
             fragments = self.filter_with_lp(
                 fragments=fragments,
