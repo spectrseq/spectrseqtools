@@ -128,7 +128,7 @@ class Predictor:
                 skeleton_seq=skeleton_seq,
                 solver_params=solver_params,
             )
-        except Exception:
+        except ValueError:
             return Prediction.default()
 
         print(
