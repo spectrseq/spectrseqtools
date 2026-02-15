@@ -18,9 +18,11 @@ def get_seq_weight(seq: tuple) -> float:
     seq_df = seq_df.with_columns(
         pl.col("name")
         .map_elements(
-            lambda x: EXPLANATION_MASSES.filter(pl.col("nucleoside") == x)
-            .get_column("monoisotopic_mass")
-            .to_list()[0],
+            lambda x: (
+                EXPLANATION_MASSES.filter(pl.col("nucleoside") == x)
+                .get_column("monoisotopic_mass")
+                .to_list()[0]
+            ),
             return_dtype=pl.Float64,
         )
         .alias("mass")

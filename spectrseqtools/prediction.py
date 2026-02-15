@@ -119,11 +119,18 @@ class Predictor:
                 )
             ),
         )
-        fragments = self.filter_with_lp(
-            fragments=fragments,
-            skeleton_seq=skeleton_seq,
-            solver_params=solver_params,
-        )
+
+        # TODO: Investigate LP initialization of highly modified sequences
+        #  for being wrong-length predictions (min/max length issue?)
+        try:
+            fragments = self.filter_with_lp(
+                fragments=fragments,
+                skeleton_seq=skeleton_seq,
+                solver_params=solver_params,
+            )
+        except ValueError:
+            return Prediction.default()
+
         print(
             "Number of internal fragments after filtering: ",
             len(
