@@ -95,7 +95,7 @@ def select_sequence_mass(
 
     """
 
-    return (
+    sequence_mass = (
         fragments.filter(
             (pl.col("is_precursor_deisotoped"))
             & (
@@ -104,8 +104,10 @@ def select_sequence_mass(
             )
         )
         .filter((pl.col("intensity") == pl.col("intensity").max()))["neutral_mass"]
-        .to_list()[0]
+        .to_list()
     )
+
+    return 0 if len(sequence_mass) < 1 else sequence_mass[0]
 
 
 def determine_intensity_percentiles(
