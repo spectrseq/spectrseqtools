@@ -10,7 +10,6 @@ from spectrseqtools.enums import SolverType
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.multiplexing import (
     evaluate_multiplexing,
-    plot_multiplexing,
     pre_process_multiplexing,
     predict_multiplexing,
 )
@@ -21,6 +20,7 @@ from spectrseqtools.parsers import (
     MixturePreprocessingOptions,
     PredictionOptions,
 )
+from spectrseqtools.plotting.plot_coverage import plot_coverage
 
 rt = get_mono()
 
@@ -157,11 +157,9 @@ def test_evaluate_mixture(testcase):
         )
     )
 
-    plot_multiplexing(
+    plot_coverage(
         MixturePlottingOptions(
             input=base_path / "df_expanded_alignment.csv",
             output_path=base_path / "alignment.html",
         )
     )
-
-    assert 2 == 1

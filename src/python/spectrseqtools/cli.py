@@ -3,11 +3,11 @@
 
 from spectrseqtools.multiplexing import (
     evaluate_multiplexing,
-    plot_multiplexing,
     pre_process_multiplexing,
     predict_multiplexing,
 )
 from spectrseqtools.parsers import Options
+from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.plotting.plot_evaluation import plot_evaluation
 from spectrseqtools.plotting.plot_fragments import plot_fragments
 from spectrseqtools.plotting.plot_run_statistics import plot_run_statistics
@@ -82,4 +82,4 @@ def main():
         if options.mixture.postprocessing is not None:
             evaluate_multiplexing(options=options.mixture.postprocessing)
         if options.mixture.plotting is not None:
-            plot_multiplexing(options=options.mixture.plotting)
+            plot_coverage(options=options.mixture.plotting)
