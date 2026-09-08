@@ -1,6 +1,6 @@
 import numpy as np
 import polars as pl
-import tqdm as tqdm
+import tqdm
 import yaml
 from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_seqs
 
@@ -15,7 +15,8 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
         if "true_sequence" not in meta:
             meta["true_sequence"] = "".join(meta["true_sequences"])
 
-    # Load predictions fasta file and generate sequence dictionary, mapping MS1 group number to prediction
+    # Load predictions fasta file and generate sequence dictionary, mapping MS1 group
+    # number to prediction
     sequence_dict = {}
     with open(str(options.prediction), mode="r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -64,35 +65,18 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
             }
         )
 
-    # # Alignment and plotting functions
-    # def targ_pred_pairing(x):
-    #     if x[0] in x[1]:
-    #         return (x[0], x[0])
-    #     else:
-    #         return (x[0], x[1][0])
-
     def compare_prediction_to_target(
         prediction_raw, target_sequence, is_backward=False
     ):
         if is_backward:
             prediction_raw = prediction_raw[::-1]
         prediction_len = len(prediction_raw)
-        # prediction_string = "".join(
-        #     masses.filter(pl.col("id") == n).select("encoding").item()
-        #     for n in prediction_raw
-        # )
         prediction_string = "".join(prediction_raw)
 
         target_strings = []
 
         for i in range(len(target_sequence) - prediction_len + 1):
             target_sequence_window = target_sequence[i : i + prediction_len]
-            # targ_string = ""
-            #
-            # for p in zip(prediction_raw, target_sequence_window):
-            #     pair = targ_pred_pairing(p)
-            #     targ_string += masses.filter(pl.col("id") == pair[1])["encoding"].item()
-            # target_strings.append(targ_string)
             target_strings.append(target_sequence_window)
 
         distances = normalized_damerau_levenshtein_distance_seqs(
@@ -204,17 +188,14 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
                     }
                 )
 
-        for b in range(len(target_sequence)):
-            # targ_base = masses.filter(pl.col("id") == target_sequence[b][0])[
-            #     "encoding"
-            # ].item()
+        for idx, entry in enumerate(target_sequence):
             match_rows.append(
                 {
                     "group": -1,
                     "score": 0,
-                    "target_position": b,
-                    "predicted_base": target_sequence[b][0],
-                    "target_base": target_sequence[b][0],
+                    "target_position": idx,
+                    "predicted_base": entry[0],
+                    "target_base": entry[0],
                     "status": "match",
                     "intact_mass": np.nan,
                     "min_window_time": np.nan,
@@ -283,39 +264,14 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
 
         return df_expanded_alignment
 
-    # alphabet = NucleotideAlphabet.from_file(
-    #     ErrorCalculator.with_metric()
-    # ).to_dataframe()
-
-    # def reference_sequence(sequence_string):
-    #     target_sequence = []
-    #     for n in list(sequence_string):
-    #         if n == " ":
-    #             target_sequence.append([""])
-    #             continue
-    #         encoding_to_id = masses.filter(pl.col("encoding") == n).select("id").item()
-    #         id_list = (
-    #             alphabet.filter(pl.col("names").list.contains(encoding_to_id))
-    #             .select("names")
-    #             .item()
-    #             .to_list()
-    #         )
-    #         target_sequence.append(id_list)
-    #
-    #     return target_sequence
-
     # Standardized reference sequence to be used in alignment at the last step
     target_sequence = "".join(
         Sequence.from_str(meta["true_sequence"]).to_encoding(masses)
     )
-    print(target_sequence)
 
     # Align predicted sequences to reference sequence
     df_alignment = align_prediction_results(prediction_vals, target_sequence, 1)
-    print(df_alignment)
     df_expanded_alignment = interpret_alignment_results(df_alignment, target_sequence)
-
-    print(df_expanded_alignment)
 
     df_alignment.write_csv(options.output_path / "df_alignment.csv", separator=",")
     df_expanded_alignment.write_csv(
