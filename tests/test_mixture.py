@@ -8,11 +8,7 @@ from clr_loader import get_mono
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.enums import SolverType
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.multiplexing import (
-    evaluate_multiplexing,
-    pre_process_multiplexing,
-    predict_multiplexing,
-)
+from spectrseqtools.multiplexing import pre_process_multiplexing, predict_multiplexing
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import (
     MixturePlottingOptions,
@@ -21,6 +17,7 @@ from spectrseqtools.parsers import (
     PredictionOptions,
 )
 from spectrseqtools.plotting.plot_coverage import plot_coverage
+from spectrseqtools.postprocessing.evaluate_mixture import evaluate_mixture
 
 rt = get_mono()
 
@@ -148,7 +145,7 @@ def test_evaluate_mixture(testcase):
     if meta.get("skip_postprocessing"):
         pytest.skip("Testcase is marked as skipped in meta.yaml")
 
-    evaluate_multiplexing(
+    evaluate_mixture(
         MixturePostprocessingOptions(
             prediction=base_path / "fragments.prediction.fasta",
             fragments=base_path / "fragments.tsv",

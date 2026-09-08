@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
 """Module for command-line interface."""
 
-from spectrseqtools.multiplexing import (
-    evaluate_multiplexing,
-    pre_process_multiplexing,
-    predict_multiplexing,
-)
+from spectrseqtools.multiplexing import pre_process_multiplexing, predict_multiplexing
 from spectrseqtools.parsers import Options
 from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.plotting.plot_evaluation import plot_evaluation
@@ -13,6 +9,7 @@ from spectrseqtools.plotting.plot_fragments import plot_fragments
 from spectrseqtools.plotting.plot_run_statistics import plot_run_statistics
 from spectrseqtools.plotting.plot_singletons import plot_singletons
 from spectrseqtools.plotting.plot_spectrum import plot_spectrum
+from spectrseqtools.postprocessing.evaluate_mixture import evaluate_mixture
 from spectrseqtools.postprocessing.evaluate_prediction import evaluate_prediction
 from spectrseqtools.postprocessing.evaluate_run_statistics import (
     evaluate_run_statistics,
@@ -80,6 +77,6 @@ def main():
         if options.mixture.prediction is not None:
             predict_multiplexing(options=options.mixture.prediction)
         if options.mixture.postprocessing is not None:
-            evaluate_multiplexing(options=options.mixture.postprocessing)
+            evaluate_mixture(options=options.mixture.postprocessing)
         if options.mixture.plotting is not None:
             plot_coverage(options=options.mixture.plotting)
