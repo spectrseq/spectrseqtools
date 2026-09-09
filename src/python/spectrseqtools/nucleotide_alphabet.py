@@ -160,7 +160,7 @@ class NucleotideAlphabet:
             pl.col("nucleotide_mass").max(),
             pl.col("singleton_mz").max(),
             pl.col("id").unique().alias("id_list"),
-            pl.col("modification_rate").max(),
+            pl.col("modification_rate").max().cast(pl.Float64),
             pl.col("is_modification").all(),
         )
 
