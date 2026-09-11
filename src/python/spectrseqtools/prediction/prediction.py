@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Prediction of sequence and fragments."""
 
+from pathlib import Path
 from typing import Set, Tuple
 
+import polars as pl
 import yaml
 
 from spectrseqtools.dataclasses import (
@@ -46,7 +48,6 @@ class Predictor:
             output_dir=options.output_dir,
             predicted_fragment_path=options.fragment_predictions,
             sequence_path=options.sequence_prediction,
-            sequence_header=options.sequence_name,
         )
 
         # Initialize error calculator with desired metric
@@ -81,14 +82,29 @@ class Predictor:
         print("Intensity cutoff percentile:", self.filter_params.cutoff_percentile)
 
         # Initialize nucleotide alphabet
-        alphabet = NucleotideAlphabet.from_file(
-            modification_rate=options.modification_rate,
-            input_path=self.file_settings.alphabet_path,
-            error=error_calculator,
-        )
+        if isinstance(self.file_settings.alphabet_path, pl.DataFrame):
+            alphabet = NucleotideAlphabet.from_dataframe(
+                modification_rate=options.modification_rate,
+                masses=self.file_settings.alphabet_path,
+                error=error_calculator,
+            )
+        else:
+            alphabet = NucleotideAlphabet.from_file(
+                modification_rate=options.modification_rate,
+                input_path=self.file_settings.alphabet_path,
+                error=error_calculator,
+            )
 
         # Standardize intact sequence mass by removing START_END fragmentation to gain SU mass
-        seq_mass_obs = meta["intact_mass"]
+        if "intact_mass" in meta.keys():
+            seq_mass_obs = meta["intact_mass"]
+        else:
+            ms1_fragments = RawFragments.from_dataframe(
+                fragments=self.file_settings.raw_fragment_path
+            ).fragments.filter(pl.col("is_ms1_mass"))
+            if ms1_fragments.height > 1:
+                raise Exception("There is more than one MS1 mass in this dataframe")
+            seq_mass_obs = ms1_fragments["observed_mass"][0]
         seq_mass_su = round(
             seq_mass_obs - self.classifier.start_end_fragmentation,
             error_calculator.decimal_places,
@@ -129,9 +145,16 @@ class Predictor:
         print()
 
         # Initialize raw fragments
-        fragments = RawFragments.from_file(
-            input_path=self.file_settings.raw_fragment_path
-        )
+        if isinstance(self.file_settings.raw_fragment_path, pl.DataFrame):
+            fragments = RawFragments.from_dataframe(
+                fragments=self.file_settings.raw_fragment_path.filter(
+                    ~pl.col("is_ms1_mass")
+                )
+            )
+        else:
+            fragments = RawFragments.from_file(
+                input_path=self.file_settings.raw_fragment_path
+            )
         fragments.filter_by_intensity(filter_params=self.filter_params)
 
         # Classify raw fragments into SU-fragments
@@ -140,8 +163,15 @@ class Predictor:
         fragments.filter_by_intact_mass(seq_info=self.inferrer.seq)
         fragments.filter_with_traceback_matrix(inferrer=self.inferrer)
 
-        # Save SU-fragments
-        fragments.save(output_path=self.file_settings.su_fragment_path)
+        if isinstance(self.file_settings.input_path, Path) and isinstance(
+            self.file_settings.alphabet_path, Path
+        ):
+            # Save SU-fragments
+            fragments.save(output_path=self.file_settings.su_fragment_path)
+        elif isinstance(self.file_settings.input_path, pl.DataFrame) and isinstance(
+            self.file_settings.alphabet_path, pl.DataFrame
+        ):
+            raw_fragments = fragments.fragments
 
         fragments.index()
 
@@ -156,13 +186,25 @@ class Predictor:
 
         print("Predicted sequence =\t", prediction.sequence)
 
-        # Save prediction results
-        prediction.save(
-            file_settings=self.file_settings,
-            alphabet=self.inferrer.alphabet,
-        )
+        if isinstance(self.file_settings.input_path, Path) and isinstance(
+            self.file_settings.alphabet_path, Path
+        ):
+            # Save prediction results
+            prediction.save(
+                file_settings=self.file_settings,
+                alphabet=self.inferrer.alphabet,
+            )
 
-        return prediction
+            return prediction
+        elif isinstance(self.file_settings.input_path, pl.DataFrame) and isinstance(
+            self.file_settings.alphabet_path, pl.DataFrame
+        ):
+            prediction_fragments = prediction.fragments.fragments
+            prediction_sequence = prediction.sequence.to_dataframe(
+                nucleotide_alphabet=self.inferrer.alphabet
+            )
+
+            return raw_fragments, prediction_fragments, prediction_sequence
 
     def predict_sequence(
         self,
@@ -200,7 +242,7 @@ class Predictor:
             )
         # TODO: Replace generic Exception, within custom one
         except Exception:
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
@@ -232,7 +274,7 @@ class Predictor:
         # TODO: Replace generic ValueError, within custom one
         except ValueError or IndexError:
             # TODO: Replace IndexError for LP initialization with custom one
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
         print("Number of internal fragments after filter: ", len(fragments.internal))
 
@@ -254,7 +296,7 @@ class Predictor:
             return lp_instance.evaluate(solver_params=solver_params)
         # TODO: Replace generic Exception, within custom one
         except Exception:
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
     def filter_by_composition(
         self, fragments: StandardUnitFragments
