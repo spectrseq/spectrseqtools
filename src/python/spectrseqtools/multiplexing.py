@@ -591,7 +591,6 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
     # Load fragments and singletons
     fragments = pl.read_csv(options.fragments, separator="\t")
     singletons = pl.read_csv(options.alphabet, separator="\t")
-    sample_name = options.sequence_name
 
     # Generate list of MS1 group numbers (number of peaks with fragments)
     grp_number_fragments = set(fragments["ms1_mass_group"].unique().to_list())
@@ -606,7 +605,7 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
     # Main prediction loop
     all_raw_fragments = []
     all_prediction_fragments = []
-    all_fasta_dicts = {}
+    all_prediction_sequences = []
 
     for grp_number in tqdm.tqdm(grp_numbers, desc="Performing prediction"):
         fragments_i = fragments.filter(pl.col("ms1_mass_group") == grp_number)
@@ -615,17 +614,19 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
         # Update prediction options
         options.fragments = fragments_i
         options.alphabet = alphabet_i
-        options.sequence_name = f"{sample_name}.{grp_number}"
 
         print(f"\n\n--- Group {grp_number} -----------------------\n")
 
         # Main prediction function
         logger.disable("spectrseqtools.fragments")
         try:
-            raw_fragments, prediction_fragments, fasta_dict = Predictor(
+            raw_fragments, prediction_fragments, prediction_sequence = Predictor(
                 options
             ).predict()
             prediction_fragments = prediction_fragments.with_columns(
+                pl.lit(grp_number).alias("ms1_mass_group")
+            )
+            prediction_sequence = prediction_sequence.with_columns(
                 pl.lit(grp_number).alias("ms1_mass_group")
             )
         except NotImplementedError:
@@ -633,22 +634,18 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
 
         all_raw_fragments.append(raw_fragments)
         all_prediction_fragments.append(prediction_fragments)
-        all_fasta_dicts.update(fasta_dict)
+        all_prediction_sequences.append(prediction_sequence)
 
-    # Collect and concatenate prediction fragments
+    # Collect and concatenate prediction fragments and sequences
     raw_fragments = pl.concat(all_raw_fragments)
     prediction_fragments = pl.concat(all_prediction_fragments)
+    prediction_sequences = pl.concat(all_prediction_sequences)
 
     # Save all prediction files in output_dir
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
 
-    sequences = []
-    with open(str(options.sequence_prediction), "w") as f:
-        for header, sequence in all_fasta_dicts.items():
-            sequences.append(sequence)
-            f.write(f"{header}\n")
-            f.write(f"{sequence}\n")
+    prediction_sequences.write_csv(options.sequence_prediction, separator="\t")
 
     raw_fragments.write_csv(
         options.output_dir / "fragments.standard_unit_fragments.tsv",
@@ -657,4 +654,4 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
 
     prediction_fragments.write_csv(options.fragment_predictions, separator="\t")
 
-    return sequences
+    return prediction_sequences.get_column("prediction").to_list()

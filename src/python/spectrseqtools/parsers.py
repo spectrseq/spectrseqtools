@@ -264,11 +264,8 @@ class PredictionOptions(ddargparse.OptionsBase):
     )
     sequence_prediction: Path = field(
         metadata={
-            "help": "Path to FASTA file that shall contain the predicted sequence."
+            "help": "Path to TSV file that shall contain the predicted sequence."
         },
-    )
-    sequence_name: str = field(
-        metadata={"help": "Header in FASTA output file."},
     )
     alphabet: Path | pl.DataFrame | None = field(
         default=None,
@@ -383,7 +380,7 @@ class FragmentPlotOptions(ddargparse.OptionsBase):
         metadata={"help": "Path to fragment file in TSV format"},
     )
     prediction: Path = field(
-        metadata={"help": "Path to prediction file in FASTA format."},
+        metadata={"help": "Path to prediction file in TSV format."},
     )
     meta: Path = field(
         metadata={"help": "Path to YAML with meta information."},
@@ -499,7 +496,7 @@ class PredictionPostprocessingOptions(ddargparse.OptionsBase):
     """Evaluation of prediction results."""
 
     prediction: list[Path] = field(
-        metadata={"help": "List of paths to prediction files in FASTA format."},
+        metadata={"help": "List of paths to prediction files in TSV format."},
     )
     meta: list[Path] = field(
         metadata={"help": "List of paths to YAML files with meta information."},
@@ -689,7 +686,7 @@ class MixturePostprocessingOptions(ddargparse.OptionsBase):
     """Evaluation of prediction results of mixtures."""
 
     prediction: Path = field(
-        metadata={"help": "Path to prediction file in FASTA format."},
+        metadata={"help": "Path to prediction file in TSV format."},
     )
     fragments: Path = field(
         metadata={"help": "Path to fragment file in TSV format"},

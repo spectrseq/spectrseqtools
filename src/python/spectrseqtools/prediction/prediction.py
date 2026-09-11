@@ -48,7 +48,6 @@ class Predictor:
             output_dir=options.output_dir,
             predicted_fragment_path=options.fragment_predictions,
             sequence_path=options.sequence_prediction,
-            sequence_header=options.sequence_name,
         )
 
         # Initialize error calculator with desired metric
@@ -201,16 +200,11 @@ class Predictor:
             self.file_settings.alphabet_path, pl.DataFrame
         ):
             prediction_fragments = prediction.fragments.fragments
-            sequence_name = self.file_settings.sequence_header
+            prediction_sequence = prediction.sequence.to_dataframe(
+                nucleotide_alphabet=self.inferrer.alphabet
+            )
 
-            fasta_dict = {
-                f">{sequence_name}": "".join(prediction.sequence.sequence),
-                f">{sequence_name}_full": prediction.sequence.fmt(
-                    nucleotide_alphabet=self.inferrer.alphabet
-                ),
-            }
-
-            return raw_fragments, prediction_fragments, fasta_dict
+            return raw_fragments, prediction_fragments, prediction_sequence
 
     def predict_sequence(
         self,
@@ -248,7 +242,7 @@ class Predictor:
             )
         # TODO: Replace generic Exception, within custom one
         except Exception:
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
@@ -280,7 +274,7 @@ class Predictor:
         # TODO: Replace generic ValueError, within custom one
         except ValueError or IndexError:
             # TODO: Replace IndexError for LP initialization with custom one
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
         print("Number of internal fragments after filter: ", len(fragments.internal))
 
@@ -302,7 +296,7 @@ class Predictor:
             return lp_instance.evaluate(solver_params=solver_params)
         # TODO: Replace generic Exception, within custom one
         except Exception:
-            return Prediction.default()
+            return Prediction.default(meta=self.inferrer.seq)
 
     def filter_by_composition(
         self, fragments: StandardUnitFragments

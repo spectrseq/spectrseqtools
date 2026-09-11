@@ -90,6 +90,10 @@ class SequenceInformation:
         """Return upper bound for valid intact mass."""
         return self.su_mass + self.max_variance
 
+    @classmethod
+    def default(cls):
+        return cls(1.0, 0.0, 0.0, 0, 0, 0)
+
     def validate_sequence(
         self, seq: SkeletonSequence, alphabet: NucleotideAlphabet
     ) -> bool:
@@ -135,15 +139,24 @@ class Sequence:
         Parameters
         ----------
         input_path : Path
-            Path to input file in FASTA format.
+            Path to input file in TSV or FASTA format.
 
         """
-        with open(input_path, mode="r", encoding="utf-8") as f:
-            # Read only lines pertaining sequence in short format (consisting
-            # only of representatives without mass-silent alternatives)
+        match input_path.suffix:
+            case ".tsv":
+                # Read predicted sequence from TSV file
+                seq = pl.read_csv(input_path, separator="\t").row(named=True)[
+                    "prediction"
+                ]
+            case ".fasta":
+                with open(input_path, mode="r", encoding="utf-8") as f:
+                    # Read only lines pertaining sequence in short format (consisting
+                    # only of representatives without mass-silent alternatives)
 
-            head, seq = f.readlines()[:2]
-            assert head.startswith(">")
+                    head, seq = f.readlines()[:2]
+                    assert head.startswith(">")
+            case _:
+                raise TypeError("File type not supported.")
 
         return cls.from_str(input_seq=seq)
 
@@ -154,7 +167,7 @@ class Sequence:
 
     @classmethod
     def default(cls) -> Self:
-        """Return empty sequence"""
+        """Return empty sequence."""
         return cls(sequence=[])
 
     def to_str(self) -> str:
@@ -187,27 +200,81 @@ class Sequence:
             for val in self.sequence
         ]
 
-    def save(
-        self, output_path: Path, sequence_name: str, alphabet: NucleotideAlphabet
-    ) -> None:
+
+@dataclass
+class PredictedSequence:
+    """Class for predicted sequences."""
+
+    sequence: Sequence
+    meta: SequenceInformation
+
+    def __repr__(self) -> str:
+        return self.sequence.__repr__()
+
+    @classmethod
+    def from_file(cls, input_path: Path) -> Self:
+        """
+        Initialize predicted sequence from file.
+
+        Parameters
+        ----------
+        input_path : Path
+            Path to input file in TSV format.
+
+        """
+        data = pl.read_csv(input_path, separator="\t")
+        return cls(
+            sequence=Sequence.from_str(data["sequence"]),
+            meta=SequenceInformation(*data),
+        )
+
+    @classmethod
+    def default(cls, meta: SequenceInformation | None = None) -> Self:
+        """Return empty predicted sequence."""
+        if meta is None:
+            meta = SequenceInformation.default()
+        return cls(sequence=Sequence.default(), meta=meta)
+
+    def to_dataframe(self, nucleotide_alphabet: NucleotideAlphabet) -> pl.DataFrame:
+        """Return Polars dataframe containing sequence information.
+
+        Parameters
+        ----------
+        nucleotide_alphabet : NucleotideAlphabet
+            Alphabet of considered nucleotides.
+
+        Returns
+        -------
+        pl.DataFrame
+            Dataframe containing information on predicted sequence.
+
+        """
+        return pl.DataFrame(
+            {
+                "prediction": self.sequence.to_str(),
+                "encoded_prediction": "".join(self.sequence.to_encoding()),
+                "full_prediction_sequence": self.sequence.fmt(
+                    nucleotide_alphabet=nucleotide_alphabet
+                ),
+                **self.meta.__dict__,
+            }
+        )
+
+    def save(self, output_path: Path, nucleotide_alphabet: NucleotideAlphabet) -> None:
         """
         Save predicted sequence to file.
 
         Parameters
         ----------
         output_path : Path
-            Path to output file in FASTA format.
-        sequence_name : str
-            Name of sequence in header.
-        alphabet : NucleotideAlphabet
+            Path to output file in TSV format.
+        nucleotide_alphabet : NucleotideAlphabet
             Alphabet of considered nucleotides.
 
         """
-        with open(output_path, mode="w", encoding="utf-8") as f:
-            print(f">{sequence_name}", file=f)
-            print("".join(self.sequence), file=f)
-            print(f">{sequence_name}_full", file=f)
-            print(self.fmt(nucleotide_alphabet=alphabet), file=f)
+        self.to_dataframe(nucleotide_alphabet=nucleotide_alphabet).write_csv(
+            output_path, separator="\t"
+        )
 
 
 @dataclass
@@ -265,7 +332,7 @@ class PredictedFragments:
 class Prediction:
     """Class for prediction results."""
 
-    sequence: Sequence
+    sequence: PredictedSequence
     fragments: PredictedFragments
 
     @classmethod
@@ -276,21 +343,21 @@ class Prediction:
         Parameters
         ----------
         sequence_path : Path
-            Path to sequence file in FASTA format.
+            Path to sequence file in TSV format.
         fragments_path : Path
             Path to fragments file in TSV format.
 
         """
         return Prediction(
-            sequence=Sequence.from_file(input_path=sequence_path),
+            sequence=PredictedSequence.from_file(input_path=sequence_path),
             fragments=PredictedFragments.from_file(input_path=fragments_path),
         )
 
     @classmethod
-    def default(cls) -> Self:
+    def default(cls, meta: SequenceInformation | None = None) -> Self:
         """Return empty prediction."""
         return Prediction(
-            sequence=Sequence.default(),
+            sequence=PredictedSequence.default(meta=meta),
             fragments=PredictedFragments.default(),
         )
 
@@ -313,11 +380,10 @@ class Prediction:
         # Save fragment predictions
         self.fragments.save(output_path=file_settings.predicted_fragment_path)
 
-        # Save predicted sequence
+        # Save sequence prediction
         self.sequence.save(
             output_path=file_settings.sequence_path,
-            sequence_name=file_settings.sequence_header,
-            alphabet=alphabet,
+            nucleotide_alphabet=alphabet,
         )
 
 

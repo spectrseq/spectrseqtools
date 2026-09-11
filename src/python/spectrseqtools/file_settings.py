@@ -139,7 +139,6 @@ class PredictionFileSettings(FileSettings):
 
     predicted_fragment_path: Path | None = None
     sequence_path: Path | None = None
-    sequence_header: str | None = None
 
     @property
     def raw_fragment_path(self) -> Path:
