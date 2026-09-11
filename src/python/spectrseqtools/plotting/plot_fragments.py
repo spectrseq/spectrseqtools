@@ -85,7 +85,7 @@ def plot_prediction(
     """
     alphabet_df = load_alphabet(input_path=alphabet_path)
     true_seq = true_seq.to_encoding(masses=alphabet_df)
-    pred_seq = prediction.sequence.to_encoding(masses=alphabet_df)
+    pred_seq = prediction.sequence.sequence.to_encoding(masses=alphabet_df)
     seq_data = pl.DataFrame(
         {
             "nuc": true_seq + pred_seq,
