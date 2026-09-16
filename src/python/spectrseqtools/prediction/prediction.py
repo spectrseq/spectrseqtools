@@ -151,6 +151,13 @@ class Predictor:
                     ~pl.col("is_ms1_mass")
                 )
             )
+            intact_fragment = self.file_settings.raw_fragment_path.filter(
+                pl.col("is_ms1_mass")
+            ).row(named=True)
+            self.inferrer.seq.ms1_mass_group = intact_fragment["ms1_mass_group"]
+            self.inferrer.seq.min_window_time = intact_fragment["min_window_time"]
+            self.inferrer.seq.max_window_time = intact_fragment["max_window_time"]
+            self.inferrer.seq.adduct_type = intact_fragment["adduct_type"]
         else:
             fragments = RawFragments.from_file(
                 input_path=self.file_settings.raw_fragment_path

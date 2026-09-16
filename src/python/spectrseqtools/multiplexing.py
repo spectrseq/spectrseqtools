@@ -626,9 +626,6 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
             prediction_fragments = prediction_fragments.with_columns(
                 pl.lit(grp_number).alias("ms1_mass_group")
             )
-            prediction_sequence = prediction_sequence.with_columns(
-                pl.lit(grp_number).alias("ms1_mass_group")
-            )
         except NotImplementedError:
             continue
 

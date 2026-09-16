@@ -74,6 +74,10 @@ class SequenceInformation:
     max_len: int
     min_len: int = 0
     max_variance: int = 1
+    ms1_mass_group: int = 0
+    min_window_time: float= 0.0
+    max_window_time: float= 0.0
+    adduct_type: str = "none"
 
     @property
     def max_modifications(self) -> int:

@@ -26,55 +26,19 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
         if "true_sequence" not in meta:
             meta["true_sequence"] = "".join(meta["true_sequences"])
 
-    # Load predictions fasta file and generate sequence dictionary, mapping MS1 group
-    # number to prediction
-    sequence_dict = {}
-    with open(str(options.prediction), mode="r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-        for line in zip(lines[::2], lines[1::2]):
-            head, seq = line
-
-            assert head.startswith(">")
-            if head.endswith("_full\n"):
-                continue
-
-            grp_number = int(head.split(".")[-1].removesuffix("\n"))
-            sequence = Sequence.from_str(seq)
-            if len(sequence.sequence) == 0:
-                continue
-            sequence_dict[grp_number] = sequence
-
-    # Get list of intact masses
-    fragments = pl.read_csv(options.fragments, separator="\t")
-    ms1_masses = fragments.filter(
-        pl.col("is_ms1_mass")
-        & pl.col("ms1_mass_group").is_in(list(sequence_dict.keys()))
-    ).with_columns(
-        pl.col("min_window_time").cast(pl.Float64),
-        pl.col("max_window_time").cast(pl.Float64),
+    data = pl.read_csv(options.prediction, separator="\t")
+    data = data.filter(pl.col("prediction").str.len_chars() > 0)
+    data = data.rename(
+        {
+            "encoded_prediction": "predicted_sequence",
+            "obs_mass": "intact_mass",
+            "ms1_mass_group": "group_number",
+            "adduct_type": "adduct_types",
+        }
     )
+    prediction_vals = data.rows(named=True)
 
     masses = load_alphabet()
-
-    # Generate prediction list for alignment
-    prediction_vals = []
-
-    for grp_number, seq in sequence_dict.items():
-        ms1_mass_info = ms1_masses.filter(pl.col("ms1_mass_group") == grp_number)
-        assert len(ms1_mass_info) == 1
-        ms1_mass_info = ms1_mass_info[0]
-
-        prediction_vals.append(
-            {
-                "group_number": grp_number,
-                "intact_mass": ms1_mass_info["observed_mass"][0],
-                "predicted_sequence": seq.to_encoding(masses),
-                "min_window_time": ms1_mass_info["min_window_time"][0],
-                "max_window_time": ms1_mass_info["max_window_time"][0],
-                "adduct_types": ms1_mass_info["adduct_type"][0],
-            }
-        )
 
     # Standardized reference sequence to be used in alignment at the last step
     target_sequence = "".join(
