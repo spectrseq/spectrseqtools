@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Postprocessing of predictions for complex mixture by evaluation thereof."""
 
+from typing import Tuple
+
 import numpy as np
 import polars as pl
 import tqdm
@@ -10,6 +12,66 @@ from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_seqs
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.file_settings import load_alphabet
 from spectrseqtools.parsers import MixturePostprocessingOptions
+
+
+class EvaluationMetric:
+    @property
+    def dtype(self) -> pl.Struct:
+        return pl.Struct(
+            [
+                pl.Field("predicted_string", pl.String),
+                pl.Field("best_matching_target_string", pl.String),
+                pl.Field("normalized_damerau_levenshtein_distance", pl.Float64),
+                pl.Field("target_start_pos", pl.UInt64),
+                pl.Field("target_end_pos", pl.UInt64),
+                pl.Field("is_backward", pl.Boolean),
+            ]
+        )
+
+    def score_query(self, query: Sequence, reference: Sequence) -> dict:
+        fw_score, fw_idx = self.align(query=query, reference=reference)
+        bw_score, bw_idx = self.align(query=query.reverse, reference=reference)
+
+        if fw_score <= bw_score:
+            res = {
+                "predicted_string": query.to_str(),
+                "best_matching_target_string": reference.to_str()[
+                    fw_idx : fw_idx + len(query.sequence)
+                ],
+                "normalized_damerau_levenshtein_distance": fw_score,
+                "target_start_pos": fw_idx,
+                "target_end_pos": fw_idx + len(query.sequence),
+                "is_backward": False,
+            }
+
+        else:
+            res = {
+                "predicted_string": query.to_str(),
+                "best_matching_target_string": reference.to_str()[
+                    bw_idx : bw_idx + len(query.sequence)
+                ],
+                "normalized_damerau_levenshtein_distance": bw_score,
+                "target_start_pos": bw_idx,
+                "target_end_pos": bw_idx + len(query.sequence),
+                "is_backward": True,
+            }
+        return res
+
+    @staticmethod
+    def align(query: Sequence, reference: Sequence) -> Tuple[float, int]:
+        pred_len = len(query.sequence)
+
+        targets = [
+            "".join(reference.sequence[idx : idx + pred_len])
+            for idx in range(len(reference.sequence) - pred_len + 1)
+        ]
+
+        dist_list = normalized_damerau_levenshtein_distance_seqs(
+            query.to_str(), targets
+        )
+        best_idx = np.argmin(dist_list)
+
+        return dist_list[best_idx], best_idx
 
 
 def evaluate_mixture(options: MixturePostprocessingOptions) -> None:

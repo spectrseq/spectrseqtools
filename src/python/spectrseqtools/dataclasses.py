@@ -75,8 +75,8 @@ class SequenceInformation:
     min_len: int = 0
     max_variance: int = 1
     ms1_mass_group: int = 0
-    min_window_time: float= 0.0
-    max_window_time: float= 0.0
+    min_window_time: float = 0.0
+    max_window_time: float = 0.0
     adduct_type: str = "none"
 
     @property
@@ -134,6 +134,10 @@ class Sequence:
 
     def __repr__(self) -> str:
         return self.sequence.__repr__()
+
+    @property
+    def reverse(self) -> Self:
+        return Sequence(sequence=self.sequence[::-1])
 
     @classmethod
     def from_file(cls, input_path: Path) -> Self:
