@@ -5,7 +5,6 @@ from typing import Tuple
 
 import numpy as np
 import polars as pl
-import tqdm
 import yaml
 from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_seqs
 
@@ -88,6 +87,7 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
         if "true_sequence" not in meta:
             meta["true_sequence"] = "".join(meta["true_sequences"])
 
+    # Load predicted sequences (if given)
     data = pl.read_csv(options.prediction, separator="\t")
     data = data.filter(pl.col("prediction").str.len_chars() > 0)
     data = data.rename(
@@ -98,115 +98,53 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
             "adduct_type": "adduct_types",
         }
     )
-    prediction_vals = data.rows(named=True)
 
+    # Load true sequence
     masses = load_alphabet()
+    target = Sequence.from_str(meta["true_sequence"]).to_encoding(masses)
 
-    # Standardized reference sequence to be used in alignment at the last step
-    target_sequence = "".join(
-        Sequence.from_str(meta["true_sequence"]).to_encoding(masses)
+    # Evaluate quality of predictions with metric
+    metric = EvaluationMetric()
+    df_align = data.with_columns(
+        pl.col("prediction")
+        .map_elements(
+            lambda seq: metric.score_query(
+                query=Sequence(Sequence.from_str(seq).to_encoding(masses)),
+                reference=Sequence(sequence=target),
+            ),
+            return_dtype=metric.dtype,
+        )
+        .alias("results")
+    ).unnest("results")
+
+    # Filter out sequences with too high score
+    df_align = df_align.filter(pl.col("normalized_damerau_levenshtein_distance") <= 1)
+
+    # Reformat evaluated predictions
+    df_align = df_align.rename({"group_number": "group", "adduct_types": "adduct_type"})
+    df_align = df_align.select(
+        "predicted_string",
+        "best_matching_target_string",
+        "normalized_damerau_levenshtein_distance",
+        "target_start_pos",
+        "target_end_pos",
+        "is_backward",
+        "group",
+        "intact_mass",
+        "min_window_time",
+        "max_window_time",
+        "adduct_type",
     )
 
-    # Align predicted sequences to reference sequence
-    df_alignment = align_prediction_results(prediction_vals, target_sequence, 1)
     df_expanded_alignment = interpret_alignment_results(
-        df_alignment, target_sequence, masses
+        df_align, "".join(target), masses
     )
 
-    df_alignment.write_csv(options.output_path / "df_alignment.csv", separator=",")
+    df_align.write_csv(options.output_path / "df_alignment.csv", separator=",")
     df_expanded_alignment.write_csv(
         options.output_path / "df_expanded_alignment.csv", separator=","
     )
     return df_expanded_alignment
-
-
-def compare_prediction_to_target(prediction_raw, target_sequence, is_backward=False):
-    if is_backward:
-        prediction_raw = prediction_raw[::-1]
-    prediction_len = len(prediction_raw)
-    prediction_string = "".join(prediction_raw)
-
-    target_strings = []
-
-    for i in range(len(target_sequence) - prediction_len + 1):
-        target_sequence_window = target_sequence[i : i + prediction_len]
-        target_strings.append(target_sequence_window)
-
-    distances = normalized_damerau_levenshtein_distance_seqs(
-        prediction_string, target_strings
-    )
-    min_distance_idx = np.argmin(distances)
-
-    min_distance = distances[min_distance_idx]
-    start_pos = min_distance_idx
-    end_pos = min_distance_idx + prediction_len
-
-    return (
-        prediction_string,
-        target_strings[min_distance_idx],
-        min_distance,
-        start_pos,
-        end_pos,
-        is_backward,
-    )
-
-
-def align_prediction_results(
-    prediction_vals, target_sequence, alignment_score_threshold=0
-):
-    alignment_vals = []
-
-    for i in tqdm.tqdm(prediction_vals, desc="Calculating alignment scores"):
-        prediction_raw = i["predicted_sequence"]
-        if len(prediction_raw) == 0:
-            continue
-
-        forward_comparison = compare_prediction_to_target(
-            prediction_raw, target_sequence, is_backward=False
-        )
-        backward_comparison = compare_prediction_to_target(
-            prediction_raw, target_sequence, is_backward=True
-        )
-
-        final_comparison = (
-            forward_comparison
-            if forward_comparison[2] <= backward_comparison[2]
-            else backward_comparison
-        )
-
-        if final_comparison[2] > alignment_score_threshold:
-            continue
-
-        alignment_vals.append(
-            final_comparison
-            + (
-                i["group_number"],
-                i["intact_mass"],
-                i["min_window_time"],
-                i["max_window_time"],
-                i["adduct_types"],
-            )
-        )
-
-    df_alignment = pl.DataFrame(
-        alignment_vals,
-        schema=[
-            "predicted_string",
-            "best_matching_target_string",
-            "normalized_damerau_levenshtein_distance",
-            "target_start_pos",
-            "target_end_pos",
-            "is_backward",
-            "group",
-            "intact_mass",
-            "min_window_time",
-            "max_window_time",
-            "adduct_type",
-        ],
-        orient="row",
-    )
-
-    return df_alignment
 
 
 def interpret_alignment_results(df_alignment, target_sequence, masses):
