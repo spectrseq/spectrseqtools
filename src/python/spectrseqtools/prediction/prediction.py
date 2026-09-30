@@ -28,7 +28,7 @@ from spectrseqtools.sequence_length import SequenceLengthEstimator
 
 
 class Predictor:
-    """Class to predict sequence and fragment."""
+    """Class to predict sequences (and corresponding fragments) in mixture."""
 
     def __init__(self, options: PredictionOptions):
         # Set parameters for LP solver
@@ -81,18 +81,51 @@ class Predictor:
 
         print("Intensity cutoff percentile:", self.filter_params.cutoff_percentile)
 
+        self.options = options
+
+    def predict(self):
+        predictor = SequencePredictor(
+            solver_params=self.solver_params,
+            file_settings=self.file_settings,
+            classifier=self.classifier,
+            filter_params=self.filter_params,
+            options=self.options,
+        )
+
+        return predictor.predict()
+
+
+class SequencePredictor:
+    """Class to predict sequence and fragment."""
+
+    def __init__(
+        self,
+        solver_params: SolverParameters,
+        file_settings: PredictionFileSettings,
+        classifier: FragmentClassifier,
+        filter_params: FilterParameters,
+        options: PredictionOptions,
+    ):
+        self.solver_params = solver_params
+        self.file_settings = file_settings
+        self.classifier = classifier
+        self.filter_params = filter_params
+
+        with open(self.file_settings.meta_path, "r", encoding="utf-8") as f:
+            meta = yaml.safe_load(f)
+
         # Initialize nucleotide alphabet
         if isinstance(self.file_settings.alphabet_path, pl.DataFrame):
             alphabet = NucleotideAlphabet.from_dataframe(
                 modification_rate=options.modification_rate,
                 masses=self.file_settings.alphabet_path,
-                error=error_calculator,
+                error=self.classifier.error,
             )
         else:
             alphabet = NucleotideAlphabet.from_file(
                 modification_rate=options.modification_rate,
                 input_path=self.file_settings.alphabet_path,
-                error=error_calculator,
+                error=self.classifier.error,
             )
 
         # Standardize intact sequence mass by removing START_END fragmentation to gain SU mass
@@ -107,7 +140,7 @@ class Predictor:
             seq_mass_obs = ms1_fragments["observed_mass"][0]
         seq_mass_su = round(
             seq_mass_obs - self.classifier.start_end_fragmentation,
-            error_calculator.decimal_places,
+            classifier.error.decimal_places,
         )
 
         # Initialize SequenceInformation class
@@ -125,7 +158,7 @@ class Predictor:
         )
         inferrer = MatrixBasedInferrer(
             alphabet=alphabet,
-            error=error_calculator,
+            error=classifier.error,
             matrix=matrix,
             seq=seq_info,
         )
