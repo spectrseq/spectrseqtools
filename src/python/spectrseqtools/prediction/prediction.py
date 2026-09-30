@@ -84,15 +84,89 @@ class Predictor:
         self.options = options
 
     def predict(self):
+        # Initialize nucleotide alphabet
+        if isinstance(self.file_settings.alphabet_path, pl.DataFrame):
+            alphabet = NucleotideAlphabet.from_dataframe(
+                modification_rate=self.options.modification_rate,
+                masses=self.file_settings.alphabet_path,
+                error=self.classifier.error,
+            )
+        else:
+            alphabet = NucleotideAlphabet.from_file(
+                modification_rate=self.options.modification_rate,
+                input_path=self.file_settings.alphabet_path,
+                error=self.classifier.error,
+            )
+
+        # Initialize intact mass
+        with open(self.file_settings.meta_path, "r", encoding="utf-8") as f:
+            meta = yaml.safe_load(f)
+
+        if "intact_mass" in meta.keys():
+            seq_mass_obs = meta["intact_mass"]
+        else:
+            ms1_fragments = RawFragments.from_dataframe(
+                fragments=self.file_settings.raw_fragment_path
+            ).fragments.filter(pl.col("is_ms1_mass"))
+            if ms1_fragments.height > 1:
+                raise Exception("There is more than one MS1 mass in this dataframe")
+            seq_mass_obs = ms1_fragments["observed_mass"][0]
+
         predictor = SequencePredictor(
             solver_params=self.solver_params,
             file_settings=self.file_settings,
             classifier=self.classifier,
             filter_params=self.filter_params,
+            alphabet=alphabet,
+            seq_mass_obs=seq_mass_obs,
             options=self.options,
         )
 
-        return predictor.predict()
+        # Initialize raw fragments
+        if isinstance(self.file_settings.raw_fragment_path, pl.DataFrame):
+            fragments = RawFragments.from_dataframe(
+                fragments=self.file_settings.raw_fragment_path.filter(
+                    ~pl.col("is_ms1_mass")
+                )
+            )
+            intact_fragment = self.file_settings.raw_fragment_path.filter(
+                pl.col("is_ms1_mass")
+            ).row(named=True)
+            predictor.inferrer.seq.ms1_mass_group = intact_fragment["ms1_mass_group"]
+            predictor.inferrer.seq.min_window_time = intact_fragment["min_window_time"]
+            predictor.inferrer.seq.max_window_time = intact_fragment["max_window_time"]
+            predictor.inferrer.seq.adduct_type = intact_fragment["adduct_type"]
+        else:
+            fragments = RawFragments.from_file(
+                input_path=self.file_settings.raw_fragment_path
+            )
+
+        prediction, su_fragments = predictor.predict(fragments=fragments)
+
+        print("Predicted sequence =\t", prediction.sequence)
+
+        if isinstance(self.file_settings.input_path, Path) and isinstance(
+            self.file_settings.alphabet_path, Path
+        ):
+            # Save SU-fragments
+            su_fragments.save(output_path=self.file_settings.su_fragment_path)
+
+            # Save prediction results
+            prediction.save(
+                file_settings=self.file_settings,
+                alphabet=predictor.inferrer.alphabet,
+            )
+
+            return prediction
+        elif isinstance(self.file_settings.input_path, pl.DataFrame) and isinstance(
+            self.file_settings.alphabet_path, pl.DataFrame
+        ):
+            prediction_fragments = prediction.fragments.fragments
+            prediction_sequence = prediction.sequence.to_dataframe(
+                nucleotide_alphabet=predictor.inferrer.alphabet
+            )
+
+            return su_fragments.fragments, prediction_fragments, prediction_sequence
 
 
 class SequencePredictor:
@@ -104,6 +178,8 @@ class SequencePredictor:
         file_settings: PredictionFileSettings,
         classifier: FragmentClassifier,
         filter_params: FilterParameters,
+        alphabet: NucleotideAlphabet,
+        seq_mass_obs: float,
         options: PredictionOptions,
     ):
         self.solver_params = solver_params
@@ -111,33 +187,7 @@ class SequencePredictor:
         self.classifier = classifier
         self.filter_params = filter_params
 
-        with open(self.file_settings.meta_path, "r", encoding="utf-8") as f:
-            meta = yaml.safe_load(f)
-
-        # Initialize nucleotide alphabet
-        if isinstance(self.file_settings.alphabet_path, pl.DataFrame):
-            alphabet = NucleotideAlphabet.from_dataframe(
-                modification_rate=options.modification_rate,
-                masses=self.file_settings.alphabet_path,
-                error=self.classifier.error,
-            )
-        else:
-            alphabet = NucleotideAlphabet.from_file(
-                modification_rate=options.modification_rate,
-                input_path=self.file_settings.alphabet_path,
-                error=self.classifier.error,
-            )
-
         # Standardize intact sequence mass by removing START_END fragmentation to gain SU mass
-        if "intact_mass" in meta.keys():
-            seq_mass_obs = meta["intact_mass"]
-        else:
-            ms1_fragments = RawFragments.from_dataframe(
-                fragments=self.file_settings.raw_fragment_path
-            ).fragments.filter(pl.col("is_ms1_mass"))
-            if ms1_fragments.height > 1:
-                raise Exception("There is more than one MS1 mass in this dataframe")
-            seq_mass_obs = ms1_fragments["observed_mass"][0]
         seq_mass_su = round(
             seq_mass_obs - self.classifier.start_end_fragmentation,
             classifier.error.decimal_places,
@@ -164,54 +214,32 @@ class SequencePredictor:
         )
         self.inferrer = inferrer
 
+        print("Alphabet after singleton reduction:")
+        self.inferrer.print_alphabet()
+        print()
+
         self.estimator = SequenceLengthEstimator.with_metric(
             metric=options.length_estimator_metric,
             inferrer=self.inferrer,
             solver_params=self.solver_params,
         )
 
-    def predict(self):
+    def predict(
+        self, fragments: RawFragments
+    ) -> Tuple[Prediction, StandardUnitFragments]:
         """Predict sequence."""
         # TODO: Log to stderr instead of stdout
-        print("Alphabet after singleton reduction:")
-        self.inferrer.print_alphabet()
-        print()
-
-        # Initialize raw fragments
-        if isinstance(self.file_settings.raw_fragment_path, pl.DataFrame):
-            fragments = RawFragments.from_dataframe(
-                fragments=self.file_settings.raw_fragment_path.filter(
-                    ~pl.col("is_ms1_mass")
-                )
-            )
-            intact_fragment = self.file_settings.raw_fragment_path.filter(
-                pl.col("is_ms1_mass")
-            ).row(named=True)
-            self.inferrer.seq.ms1_mass_group = intact_fragment["ms1_mass_group"]
-            self.inferrer.seq.min_window_time = intact_fragment["min_window_time"]
-            self.inferrer.seq.max_window_time = intact_fragment["max_window_time"]
-            self.inferrer.seq.adduct_type = intact_fragment["adduct_type"]
-        else:
-            fragments = RawFragments.from_file(
-                input_path=self.file_settings.raw_fragment_path
-            )
+        # Filter raw fragments
         fragments.filter_by_intensity(filter_params=self.filter_params)
 
         # Classify raw fragments into SU-fragments
         fragments = self.classifier.classify(fragments=fragments)
 
+        # Filter SU-fragments
         fragments.filter_by_intact_mass(seq_info=self.inferrer.seq)
         fragments.filter_with_traceback_matrix(inferrer=self.inferrer)
 
-        if isinstance(self.file_settings.input_path, Path) and isinstance(
-            self.file_settings.alphabet_path, Path
-        ):
-            # Save SU-fragments
-            fragments.save(output_path=self.file_settings.su_fragment_path)
-        elif isinstance(self.file_settings.input_path, pl.DataFrame) and isinstance(
-            self.file_settings.alphabet_path, pl.DataFrame
-        ):
-            raw_fragments = fragments.fragments
+        su_fragments = StandardUnitFragments(fragments=fragments.fragments)
 
         fragments.index()
 
@@ -224,27 +252,7 @@ class SequencePredictor:
             solver_params=self.solver_params,
         )
 
-        print("Predicted sequence =\t", prediction.sequence)
-
-        if isinstance(self.file_settings.input_path, Path) and isinstance(
-            self.file_settings.alphabet_path, Path
-        ):
-            # Save prediction results
-            prediction.save(
-                file_settings=self.file_settings,
-                alphabet=self.inferrer.alphabet,
-            )
-
-            return prediction
-        elif isinstance(self.file_settings.input_path, pl.DataFrame) and isinstance(
-            self.file_settings.alphabet_path, pl.DataFrame
-        ):
-            prediction_fragments = prediction.fragments.fragments
-            prediction_sequence = prediction.sequence.to_dataframe(
-                nucleotide_alphabet=self.inferrer.alphabet
-            )
-
-            return raw_fragments, prediction_fragments, prediction_sequence
+        return prediction, su_fragments
 
     def predict_sequence(
         self,
