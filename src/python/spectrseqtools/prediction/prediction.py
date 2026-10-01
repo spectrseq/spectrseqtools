@@ -3,7 +3,6 @@
 
 from typing import Set, Tuple
 
-import polars as pl
 import yaml
 
 from spectrseqtools.dataclasses import (
