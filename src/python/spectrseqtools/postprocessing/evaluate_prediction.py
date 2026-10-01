@@ -14,7 +14,7 @@ from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import PredictionPostprocessingOptions
 from spectrseqtools.plotting.plot_evaluation import STATUS_ORDER
 
-NUCLEOTIDE_DF = NucleotideAlphabet.from_file(error=ErrorUnderL1Norm()).to_dataframe()
+NUCLEOTIDE_DF = NucleotideAlphabet.from_file(error=ErrorUnderL1Norm())[0].to_dataframe()
 NUC_REPS = {
     **{
         nuc: row[NUCLEOTIDE_DF.get_column_index("names")][0]

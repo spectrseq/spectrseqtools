@@ -489,9 +489,10 @@ class RawFragments:
     """Class for predicted fragments."""
 
     fragments: pl.DataFrame
+    group_idx: int = -1
 
     @classmethod
-    def from_file(cls, input_path: Path) -> Self:
+    def from_file(cls, input_path: Path) -> Self | List[Self]:
         """
         Initialize raw fragments from file.
 
@@ -504,7 +505,25 @@ class RawFragments:
         # Read raw fragments from file
         fragments = pl.read_csv(input_path, separator="\t")
 
-        return cls.from_dataframe(fragments=fragments)
+        # Ensure existence of necessary columns
+        if "ms1_mass_group" not in fragments.columns:
+            fragments = fragments.with_columns(pl.lit(-1).alias("ms1_mass_group"))
+        if "is_ms1_mass" not in fragments.columns:
+            fragments = fragments.with_columns(pl.lit(False).alias("is_ms1_mass"))
+
+        fragment_lists = []
+        groups = fragments.select("ms1_mass_group").unique().to_series().to_list()
+        for idx in sorted(groups):
+            fragment_lists.append(
+                cls.from_dataframe(
+                    fragments=fragments.filter(pl.col("ms1_mass_group") == idx)
+                )
+            )
+
+        # if len(groups) == 1:
+        #     return fragment_lists[0]
+
+        return fragment_lists
 
     @classmethod
     def from_dataframe(cls, fragments: pl.DataFrame) -> Self:
@@ -517,6 +536,14 @@ class RawFragments:
             Dataframe containing raw fragments.
 
         """
+        # Select index of MS1 mass group
+        group_idx = fragments.select("ms1_mass_group").unique().to_series().to_list()
+        if len(group_idx) != 1:
+            raise Exception(
+                "Dataframe does not contain fragments from exactly one sequence."
+            )
+        group_idx = group_idx[0]
+
         # If no intensity is given, set it to -1 by default
         if "intensity" not in fragments.columns:
             fragments = fragments.with_columns(pl.lit(-1).alias("intensity"))
@@ -528,7 +555,7 @@ class RawFragments:
         # Index fragments
         fragments = fragments.with_row_index("fragment_index")
 
-        return cls(fragments=fragments)
+        return cls(group_idx=group_idx, fragments=fragments)
 
     @classmethod
     def default(cls) -> Self:
@@ -542,6 +569,20 @@ class RawFragments:
                 }
             ),
         )
+
+    @property
+    def ms1_fragments(self) -> Self:
+        return RawFragments(
+            group_idx=self.group_idx,
+            fragments=self.fragments.filter(pl.col("is_ms1_mass")),
+        )
+
+    @property
+    def ms2_fragments(self) -> Self:
+        fragments = self.fragments.filter(~pl.col("is_ms1_mass"))
+        if self.group_idx == -1:
+            fragments = fragments.drop(["is_ms1_mass", "ms1_mass_group"])
+        return RawFragments(group_idx=self.group_idx, fragments=fragments)
 
     def filter_by_intensity(self, filter_params: FilterParameters) -> None:
         """

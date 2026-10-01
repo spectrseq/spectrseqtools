@@ -71,6 +71,7 @@ class NucleotideAlphabet:
     """Class for considered nucleotide alphabet."""
 
     alphabet: List[NucleotideMass]
+    group_idx: int = -1
 
     def __repr__(self) -> str:
         return self.to_dataframe().__repr__()
@@ -81,7 +82,7 @@ class NucleotideAlphabet:
         error: ErrorCalculator,
         modification_rate: float = 0.5,
         input_path: Path = None,
-    ) -> Self:
+    ) -> Self | List[Self]:
         """
         Initialize nucleotide alphabet from file.
 
@@ -98,9 +99,21 @@ class NucleotideAlphabet:
         # Read nucleoside masses from file
         masses = load_alphabet(input_path=input_path)
 
-        return cls.from_dataframe(
-            modification_rate=modification_rate, error=error, masses=masses
-        )
+        alphabets = []
+        groups = masses.select("ms1_mass_group").unique().to_series().to_list()
+        for idx in sorted(groups):
+            alphabets.append(
+                cls.from_dataframe(
+                    modification_rate=modification_rate,
+                    error=error,
+                    masses=masses.filter(pl.col("ms1_mass_group") == idx),
+                )
+            )
+
+        # if len(groups) == 1:
+        #     return alphabets[0]
+
+        return alphabets
 
     @classmethod
     def from_dataframe(
@@ -122,6 +135,12 @@ class NucleotideAlphabet:
             Dataframe with nucleoside information.
 
         """
+        # Select index of MS1 mass group
+        group_idx = masses.select("ms1_mass_group").unique().to_series().to_list()
+        if len(group_idx) != 1:
+            raise Exception("Dataframe does not contain exactly one alphabet.")
+        group_idx = group_idx[0]
+
         # Set mass for phosphate link between bases
         phosphate_link = (
             ELEMENT_MASSES["P"] + 2 * ELEMENT_MASSES["O"] - ELEMENT_MASSES["H+"]
@@ -178,6 +197,7 @@ class NucleotideAlphabet:
 
         # Return alphabet over all nucleotides that can occur in a sequence
         return cls(
+            group_idx=group_idx,
             alphabet=[
                 NucleotideMass(**row)
                 for row in new_df.filter(pl.col("modification_rate") > 0).rows(

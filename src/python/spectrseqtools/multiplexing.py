@@ -608,13 +608,6 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
     all_prediction_sequences = []
 
     for grp_number in tqdm.tqdm(grp_numbers, desc="Performing prediction"):
-        fragments_i = fragments.filter(pl.col("ms1_mass_group") == grp_number)
-        alphabet_i = singletons.filter(pl.col("ms1_mass_group") == grp_number)
-
-        # Update prediction options
-        options.fragments = fragments_i
-        options.alphabet = alphabet_i
-
         print(f"\n\n--- Group {grp_number} -----------------------\n")
 
         # Main prediction function
@@ -622,7 +615,7 @@ def predict_multiplexing(options: PredictionOptions) -> List[str]:
         try:
             raw_fragments, prediction_fragments, prediction_sequence = Predictor(
                 options
-            ).predict()
+            ).predict(group_idx=grp_number)
             prediction_fragments = prediction_fragments.with_columns(
                 pl.lit(grp_number).alias("ms1_mass_group")
             )

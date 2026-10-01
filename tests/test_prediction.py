@@ -91,7 +91,7 @@ def test_testcase(testcase):
         prediction.sequence.sequence.fmt(
             nucleotide_alphabet=NucleotideAlphabet.from_file(
                 error=ErrorCalculator.with_metric()
-            )
+            )[0]
         ),
     )
 

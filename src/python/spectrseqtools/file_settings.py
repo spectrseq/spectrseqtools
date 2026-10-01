@@ -36,6 +36,7 @@ _ALPHABET_DF_COLS = [
     "modification_rate",
     "is_modification",
     "encoding",
+    "ms1_mass_group",
 ]
 
 
@@ -50,7 +51,7 @@ def load_alphabet(input_path: Path | None = None) -> pl.DataFrame:
     Returns
     -------
     pl.DataFrame
-        Dataframe containing valid alphabet.
+        Dataframe containing valid alphabets.
 
     """
     # If input path is None or non-existent, set default
@@ -60,6 +61,11 @@ def load_alphabet(input_path: Path | None = None) -> pl.DataFrame:
         input_path = DEFAULT_ALPHABET_PATH
 
     alphabet = pl.read_csv(input_path, separator="\t")
+
+    # Ensure existence of at least one MS1 group
+    if "ms1_mass_group" not in alphabet.columns:
+        alphabet = alphabet.with_columns(pl.lit(-1).alias("ms1_mass_group"))
+
     masses = alphabet.select(_ALPHABET_DF_COLS)
     assert masses.columns == _ALPHABET_DF_COLS
     return alphabet
