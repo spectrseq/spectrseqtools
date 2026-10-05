@@ -191,10 +191,10 @@ def generate_ms1_windows(
 
     window_mass_info = []
 
-    seen_ms1_scan_sets = set()
-    ms2_scan_cache = {}
+    ms1_peak_to_ms2_idx = defaultdict(set)
+    ms2_idx_to_scan = {}
 
-    for idx, t in enumerate(
+    for tic_grp, t in enumerate(
         tqdm.tqdm(
             peak_times,
             desc="Deisotoping average MS1 and collecting MS2",
@@ -209,12 +209,7 @@ def generate_ms1_windows(
         average_ms1_scan.pick_peaks()
 
         ms1_index_list = average_ms1_scan.scan_indices
-        ms1_index_set = frozenset(ms1_index_list)
-
-        if ms1_index_set in seen_ms1_scan_sets:
-            continue
-
-        seen_ms1_scan_sets.add(ms1_index_set)
+        ms1_index_string = "_".join(map(str, ms1_index_list))
 
         min_window_time = raw_file_read.get_scan_by_index(min(ms1_index_list)).scan_time
 
@@ -226,7 +221,11 @@ def generate_ms1_windows(
             ms2_index_list = ms1_to_ms2_idx[ms1_idx]
 
             for ms2_idx in ms2_index_list:
-                ms2_scans.append(raw_file_read.get_scan_by_index(ms2_idx))
+                ms2_scan = raw_file_read.get_scan_by_index(ms2_idx)
+                ms2_scans.append(ms2_scan)
+                if ms2_idx in list(ms2_idx_to_scan.keys()):
+                    continue
+                ms2_idx_to_scan[ms2_idx] = ms2_scan
 
         (
             average_ms1_scan,
@@ -247,38 +246,40 @@ def generate_ms1_windows(
         )
 
         # Deconvolute MS1 scan to get list of deisotoped peaks
-        ms1_masses = ms1_deconvoluter.deconvolute_scan(
+        ms1_peaks = ms1_deconvoluter.deconvolute_scan(
             scan=average_ms1_scan,
             priority_list=priority_list,
         ).peaks
 
-        ms2_scan_idx_list = []
-        # Collect MS2 scans
-        for ms2_scan in ms2_scans:
-            ms2_scan_idx = int(ms2_scan.index)
-            ms2_scan_idx_list.append(ms2_scan_idx)
+        if len(ms1_peaks) != len(ms2_scans):
+            raise Exception("Number of MS1 priority peaks and MS2 scans are not equal!")
+        for ms1_peak, ms2_scan in zip(ms1_peaks, ms2_scans):
+            ms1_peak_to_ms2_idx[ms1_index_string+"_"+str(ms1_peak.peak_idx)].add(ms2_scan.index)
 
-            if ms2_scan_idx in ms2_scan_cache.keys():
-                continue
-            ms2_scan_cache[ms2_scan_idx] = ms2_scan
-
-        for ms1_mass, ms2_scan_idx in zip(
-            ms1_masses,
-            ms2_scan_idx_list,
-        ):
             window_mass_info.append(
                 {
                     "min_window_time": min_window_time,
                     "max_window_time": max_window_time,
-                    "ms1_mass": ms1_mass.neutral_mass,
-                    "ms2_scan_idx": ms2_scan_idx,
-                    "ms1_time_group": idx,
+                    "ms1_mass": ms1_peak.neutral_mass,
+                    "ms1_index": ms1_index_string,
+                    "ms1_peak_index": str(ms1_peak.peak_idx),
+                    "ms1_time_group": tic_grp,
+                    "ms1_peak_id": ms1_index_string+"_"+str(ms1_peak.peak_idx)
                 }
             )
 
     df_window_info = pl.DataFrame(window_mass_info)
 
-    return df_window_info, ms2_scan_cache
+    df_window_info = df_window_info.with_columns(
+    pl.col("ms1_peak_id")
+    .map_elements(
+        lambda x: list(ms1_peak_to_ms2_idx.get(x, set())),
+        return_dtype=pl.List(pl.Int64),
+    )
+    .alias("ms2_scan_idx")
+    ).drop("ms1_peak_id")
+
+    return df_window_info, ms2_idx_to_scan
 
 
 def adduct_detection(df_window_info, error, detect_adducts=True):
@@ -436,7 +437,7 @@ def generate_global_singletons(options, error):
 def generate_singletons_and_fragments(
     grp_number,
     df_window_info,
-    ms2_scan_cache,
+    ms2_idx_to_scan,
     options,
     error,
     ms2_deconvoluter,
@@ -445,7 +446,7 @@ def generate_singletons_and_fragments(
 ):
     df_filter = df_window_info.filter(pl.col("ms1_mass_group") == grp_number)
 
-    adduct_types = ", ".join(df_filter["inferred_adduct_type"].unique().to_list())
+    adduct_types = ", ".join(df_filter["inferred_adduct_type"].unique().sort().to_list())
     min_window_time = df_filter["min_window_time"].min()
     max_window_time = df_filter["max_window_time"].max()
     intact_mass = df_filter["ms1_mass"].min()
@@ -453,31 +454,17 @@ def generate_singletons_and_fragments(
     if intact_mass < meta["3_prime_tag"] + meta["5_prime_tag"]:
         return None, None
 
-    ms2_scan_list = []
+    ms2_index_in_grp = set()
+    for ms2_idx_list in df_filter["ms2_scan_idx"].unique().to_list():
+        [ms2_index_in_grp.add(idx) for idx in ms2_idx_list]
 
-    ms2_index_list = df_filter["ms2_scan_idx"].unique().to_list()
-    for ms2_idx in ms2_index_list:
-        ms2_scan_list.append(ms2_scan_cache[ms2_idx])
+    ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in list(ms2_index_in_grp)]
 
-    if len(ms2_scan_list) > 1:
-        average_ms2_scan = ms2_scan_list[0].average_with(ms2_scan_list[1:])
+    if len(ms2_scans_in_grp) > 1:
+        average_ms2_scan = ms2_scans_in_grp[0].average_with(ms2_scans_in_grp[1:])
     else:
-        average_ms2_scan = ms2_scan_list[0]
+        average_ms2_scan = ms2_scans_in_grp[0]
     average_ms2_scan.pick_peaks()
-
-    singletons = RawPeakList.from_scan(
-        average_ms2_scan,
-        SingletonBoundaries.from_alphabet_file(
-            input_path=options.alphabet,
-            boundary_factor=0.5,
-            error=error,
-        ),
-    ).to_singletons(alphabet_path=options.alphabet, error=error, min_score=-np.inf)
-
-    if singletons is None:
-        singletons = default_singletons
-
-    singletons = singletons.with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
 
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
         scan=average_ms2_scan,
@@ -512,6 +499,23 @@ def generate_singletons_and_fragments(
         fragments = pl.concat([fragments, intact_mass_row], how="diagonal_relaxed")
     else:
         return None, None
+
+    singleton_peaks = RawPeakList.from_scan(
+        average_ms2_scan, 
+        SingletonBoundaries.from_alphabet_file(
+            input_path=options.alphabet,
+            boundary_factor=0.5,
+            error=error,)
+    )
+
+    if singleton_peaks is None or len(singleton_peaks.peaks) == 0:
+        singletons = default_singletons
+    else:
+        singletons = singleton_peaks.to_singletons(alphabet_path = options.alphabet, error = error, min_score = -np.inf)
+        if singletons is None:
+            singletons = default_singletons
+
+    singletons = singletons.with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
 
     return fragments, singletons
 
