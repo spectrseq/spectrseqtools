@@ -8,7 +8,7 @@ from clr_loader import get_mono
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.enums import SolverType
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.multiplexing import pre_process_multiplexing, predict_multiplexing
+from spectrseqtools.multiplexing import pre_process_multiplexing
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import (
     MixturePlottingOptions,
@@ -18,6 +18,7 @@ from spectrseqtools.parsers import (
 )
 from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.postprocessing.evaluate_mixture import evaluate_mixture
+from spectrseqtools.prediction.prediction import Predictor
 
 rt = get_mono()
 
@@ -84,21 +85,20 @@ def test_predict_mixture(testcase):
         pytest.skip("Testcase is marked as skipped in meta.yaml")
 
     alphabet_path = base_path / "fragments.singletons.tsv"
-    prediction = predict_multiplexing(
+    prediction = Predictor(
         PredictionOptions(
             fragments=base_path / "fragments.tsv",
             meta=base_path / "fragments.preprocessed.meta.yaml",
             alphabet=alphabet_path,
-            sequence_prediction=base_path / "fragments.prediction.fasta",
-            fragment_predictions=base_path / "fragments.prediction.tsv",
-            sequence_name=f"{meta['identity']}",
+            sequence_prediction=base_path / "fragments.prediction.sequence.tsv",
+            fragment_predictions=base_path / "fragments.prediction.fragments.tsv",
             output_dir=base_path,
             intensity_cutoff_percentile=70,
             # solver=SolverType.CBC,
-            solver=SolverType.GUROBI,
-            # solver=SolverType.HIGHS,
+            # solver=SolverType.GUROBI,
+            solver=SolverType.HIGHS,
         )
-    )
+    ).predict()
 
     if "true_sequences" in meta:
         # Read true sequence from meta file
@@ -116,7 +116,7 @@ def test_predict_mixture(testcase):
                         pred_seq.fmt(
                             nucleotide_alphabet=NucleotideAlphabet.from_file(
                                 error=ErrorCalculator.with_metric()
-                            )
+                            )[0]
                         ),
                     )
                     found_match = True
@@ -147,7 +147,7 @@ def test_evaluate_mixture(testcase):
 
     evaluate_mixture(
         MixturePostprocessingOptions(
-            prediction=base_path / "fragments.prediction.fasta",
+            prediction=base_path / "fragments.prediction.sequence.tsv",
             fragments=base_path / "fragments.tsv",
             meta=base_path / "fragments.meta.yaml",
             output_path=base_path,
