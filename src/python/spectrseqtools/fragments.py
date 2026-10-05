@@ -594,7 +594,8 @@ class RawFragments:
             Parameters used for filtering steps.
 
         """
-        if filter_params.intensity_cutoff is None:
+        intensity_cutoff = filter_params.intensity_cutoff
+        if  intensity_cutoff is None:
             # Get intensity cutoffs for all percentiles (in increments of 5%)
             percentile_df = self.fragments.get_column("intensity").describe(
                 percentiles=np.linspace(0, 0.95, 20),
@@ -602,13 +603,13 @@ class RawFragments:
             )
 
             # Set intensity cutoff (if not given in metadata) based on desired percentile
-            filter_params.intensity_cutoff = percentile_df.filter(
+            intensity_cutoff = percentile_df.filter(
                 pl.col("statistic") == f"{filter_params.cutoff_percentile}%"
             )["value"].to_list()[0]
 
         if self.fragments.select("intensity").min().item() > -1:
             self.fragments = self.fragments.filter(
-                pl.col("intensity") >= filter_params.intensity_cutoff
+                pl.col("intensity") >= intensity_cutoff
             )
 
     def standardize(
