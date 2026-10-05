@@ -2,7 +2,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import Tuple
 
 import ms_deisotope as ms_ditp
 import numpy as np
@@ -10,13 +10,11 @@ import polars as pl
 import tqdm as tqdm
 import yaml
 from clr_loader import get_mono
-from loguru import logger
 from scipy.signal import find_peaks
 
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
-from spectrseqtools.parsers import MixturePreprocessingOptions, PredictionOptions
-from spectrseqtools.prediction.prediction import Predictor
+from spectrseqtools.parsers import MixturePreprocessingOptions
 from spectrseqtools.preprocessing.deconvolution import MS1Deconvoluter, MS2Deconvoluter
 from spectrseqtools.preprocessing.preprocessing import (
     Preprocessor,
@@ -254,7 +252,9 @@ def generate_ms1_windows(
         if len(ms1_peaks) != len(ms2_scans):
             raise Exception("Number of MS1 priority peaks and MS2 scans are not equal!")
         for ms1_peak, ms2_scan in zip(ms1_peaks, ms2_scans):
-            ms1_peak_to_ms2_idx[ms1_index_string+"_"+str(ms1_peak.peak_idx)].add(ms2_scan.index)
+            ms1_peak_to_ms2_idx[ms1_index_string + "_" + str(ms1_peak.peak_idx)].add(
+                ms2_scan.index
+            )
 
             window_mass_info.append(
                 {
@@ -264,19 +264,19 @@ def generate_ms1_windows(
                     "ms1_index": ms1_index_string,
                     "ms1_peak_index": str(ms1_peak.peak_idx),
                     "ms1_time_group": tic_grp,
-                    "ms1_peak_id": ms1_index_string+"_"+str(ms1_peak.peak_idx)
+                    "ms1_peak_id": ms1_index_string + "_" + str(ms1_peak.peak_idx),
                 }
             )
 
     df_window_info = pl.DataFrame(window_mass_info)
 
     df_window_info = df_window_info.with_columns(
-    pl.col("ms1_peak_id")
-    .map_elements(
-        lambda x: list(ms1_peak_to_ms2_idx.get(x, set())),
-        return_dtype=pl.List(pl.Int64),
-    )
-    .alias("ms2_scan_idx")
+        pl.col("ms1_peak_id")
+        .map_elements(
+            lambda x: list(ms1_peak_to_ms2_idx.get(x, set())),
+            return_dtype=pl.List(pl.Int64),
+        )
+        .alias("ms2_scan_idx")
     ).drop("ms1_peak_id")
 
     return df_window_info, ms2_idx_to_scan
@@ -446,7 +446,9 @@ def generate_singletons_and_fragments(
 ):
     df_filter = df_window_info.filter(pl.col("ms1_mass_group") == grp_number)
 
-    adduct_types = ", ".join(df_filter["inferred_adduct_type"].unique().sort().to_list())
+    adduct_types = ", ".join(
+        df_filter["inferred_adduct_type"].unique().sort().to_list()
+    )
     min_window_time = df_filter["min_window_time"].min()
     max_window_time = df_filter["max_window_time"].max()
     intact_mass = df_filter["ms1_mass"].min()
@@ -501,17 +503,20 @@ def generate_singletons_and_fragments(
         return None, None
 
     singleton_peaks = RawPeakList.from_scan(
-        average_ms2_scan, 
+        average_ms2_scan,
         SingletonBoundaries.from_alphabet_file(
             input_path=options.alphabet,
             boundary_factor=0.5,
-            error=error,)
+            error=error,
+        ),
     )
 
     if singleton_peaks is None or len(singleton_peaks.peaks) == 0:
         singletons = default_singletons
     else:
-        singletons = singleton_peaks.to_singletons(alphabet_path = options.alphabet, error = error, min_score = -np.inf)
+        singletons = singleton_peaks.to_singletons(
+            alphabet_path=options.alphabet, error=error, min_score=-np.inf
+        )
         if singletons is None:
             singletons = default_singletons
 

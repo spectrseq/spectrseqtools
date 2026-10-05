@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Module for command-line interface."""
 
-from spectrseqtools.multiplexing import pre_process_multiplexing, predict_multiplexing
+from spectrseqtools.multiplexing import pre_process_multiplexing
 from spectrseqtools.parsers import Options
 from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.plotting.plot_evaluation import plot_evaluation

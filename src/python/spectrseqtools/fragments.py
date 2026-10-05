@@ -595,7 +595,7 @@ class RawFragments:
 
         """
         intensity_cutoff = filter_params.intensity_cutoff
-        if  intensity_cutoff is None:
+        if intensity_cutoff is None:
             # Get intensity cutoffs for all percentiles (in increments of 5%)
             percentile_df = self.fragments.get_column("intensity").describe(
                 percentiles=np.linspace(0, 0.95, 20),
