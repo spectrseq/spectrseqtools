@@ -3,7 +3,10 @@
 
 from typing import Set, Tuple
 
+import polars as pl
+import tqdm
 import yaml
+from loguru import logger
 
 from spectrseqtools.dataclasses import (
     FilterParameters,
@@ -81,54 +84,78 @@ class Predictor:
 
         self.options = options
 
-    def predict(self, group_idx: int = -1):
-        # Initialize nucleotide alphabet
+    def predict(self):
+        # Initialize list of nucleotide alphabets
         alphabets = NucleotideAlphabet.from_file(
             modification_rate=self.options.modification_rate,
             input_path=self.file_settings.alphabet_path,
             error=self.classifier.error,
         )
         alph_indices = [alph.group_idx for alph in alphabets]
-        alphabet = alphabets[alph_indices.index(group_idx)]
 
+        # Initialize list of raw fragments
         raw_fragments = RawFragments.from_file(
             input_path=self.file_settings.raw_fragment_path
         )
         frag_indices = [frag.group_idx for frag in raw_fragments]
-        raw_fragments = raw_fragments[frag_indices.index(group_idx)]
 
-        predictor = SequencePredictor(
-            solver_params=self.solver_params,
-            file_settings=self.file_settings,
-            classifier=self.classifier,
-            filter_params=self.filter_params,
-            alphabet=alphabet,
-            raw_fragments=raw_fragments,
-            options=self.options,
-        )
+        # Ensure alphabets and fragment lists match
+        if alph_indices != frag_indices:
+            raise Exception("MS1 mass groups of fragments and alphabets differ!")
 
-        prediction, su_fragments = predictor.predict()
+        # Predict sequences
+        all_su_fragments = []
+        all_pred_fragments = []
+        all_pred_sequences = []
+        for group_idx in tqdm.tqdm(alph_indices, desc="Predicting sequences"):
+            print(f"\n\n--- Group {group_idx} -----------------------\n")
 
-        print("Predicted sequence =\t", prediction.sequence)
+            logger.disable("spectrseqtools.fragments")
+            try:
+                alphabet = alphabets[alph_indices.index(group_idx)]
 
-        if group_idx == -1:
-            # Save SU-fragments
-            su_fragments.save(output_path=self.file_settings.su_fragment_path)
+                predictor = SequencePredictor(
+                    solver_params=self.solver_params,
+                    file_settings=self.file_settings,
+                    classifier=self.classifier,
+                    filter_params=self.filter_params,
+                    alphabet=alphabet,
+                    raw_fragments=raw_fragments[frag_indices.index(group_idx)],
+                    options=self.options,
+                )
+                prediction, su_fragments = predictor.predict()
 
-            # Save prediction results
-            prediction.save(
-                file_settings=self.file_settings,
-                alphabet=predictor.inferrer.alphabet,
+                print("Predicted sequence =\t", prediction.sequence)
+            except NotImplementedError:
+                continue
+
+            all_su_fragments.append(su_fragments.fragments)
+            all_pred_fragments.append(prediction.fragments.fragments)
+            all_pred_sequences.append(
+                prediction.sequence.to_dataframe(nucleotide_alphabet=alphabet)
             )
 
-            return prediction
+        # Collect and concatenate prediction fragments and sequences
+        su_fragments = pl.concat(all_su_fragments)
+        pred_fragments = pl.concat(all_pred_fragments)
+        pred_sequences = pl.concat(all_pred_sequences)
 
-        prediction_fragments = prediction.fragments.fragments
-        prediction_sequence = prediction.sequence.to_dataframe(
-            nucleotide_alphabet=predictor.inferrer.alphabet
+        # Save SU-fragments
+        su_fragments.write_csv(
+            self.file_settings.su_fragment_path,
+            separator="\t",
         )
 
-        return su_fragments.fragments, prediction_fragments, prediction_sequence
+        # Save prediction results
+        pred_sequences.write_csv(self.file_settings.sequence_path, separator="\t")
+        pred_fragments.write_csv(
+            self.file_settings.predicted_fragment_path, separator="\t"
+        )
+
+        if len(alph_indices) == 1:
+            return prediction
+
+        return pred_sequences.get_column("prediction").to_list()
 
 
 class SequencePredictor:

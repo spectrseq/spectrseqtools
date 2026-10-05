@@ -75,7 +75,7 @@ def main():
         if options.mixture.preprocessing is not None:
             pre_process_multiplexing(options=options.mixture.preprocessing)
         if options.mixture.prediction is not None:
-            predict_multiplexing(options=options.mixture.prediction)
+            Predictor(options=options.mixture.prediction).predict()
         if options.mixture.postprocessing is not None:
             evaluate_mixture(options=options.mixture.postprocessing)
         if options.mixture.plotting is not None:
