@@ -15,7 +15,11 @@ from scipy.signal import find_peaks
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
 from spectrseqtools.parsers import MixturePreprocessingOptions
-from spectrseqtools.preprocessing.deconvolution import MS1Deconvoluter, MS2Deconvoluter
+from spectrseqtools.preprocessing.deconvolution import (
+    DEFAULT_CHARGE_VALUE,
+    MS1Deconvoluter,
+    MS2Deconvoluter,
+)
 from spectrseqtools.preprocessing.preprocessing import (
     Preprocessor,
     initialize_raw_file_iterator,
@@ -457,10 +461,21 @@ def generate_singletons_and_fragments(
         return None, None
 
     ms2_index_in_grp = set()
-    for ms2_idx_list in df_filter["ms2_scan_idx"].unique().to_list():
+    for ms2_idx_list in df_filter["ms2_scan_idx"].sort().unique().to_list():
         [ms2_index_in_grp.add(idx) for idx in ms2_idx_list]
 
     ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in list(ms2_index_in_grp)]
+
+    precursor_charges = [
+        abs(int(scan.precursor_information.charge))
+        for scan in ms2_scans_in_grp
+        if scan.precursor_information is not None
+        and isinstance(scan.precursor_information.charge, int)
+    ]
+
+    precursor_charge_limit = max(
+        [DEFAULT_CHARGE_VALUE, *precursor_charges]
+    )
 
     if len(ms2_scans_in_grp) > 1:
         average_ms2_scan = ms2_scans_in_grp[0].average_with(ms2_scans_in_grp[1:])
@@ -470,6 +485,7 @@ def generate_singletons_and_fragments(
 
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
         scan=average_ms2_scan,
+        precursor_charge_limit=precursor_charge_limit
     )
 
     if len(ms2_peak_list.peaks) == 0:
