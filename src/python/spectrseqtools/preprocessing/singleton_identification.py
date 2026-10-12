@@ -52,7 +52,7 @@ class SingletonBoundaries:
             Factor for scaling theoretical singleton boundaries.
 
         """
-        alphabet = NucleotideAlphabet.from_file(input_path=input_path, error=error)
+        alphabet = NucleotideAlphabet.from_file(input_path=input_path, error=error)[0]
         return SingletonBoundaries(
             min_mz=alphabet.min.singleton_mz * (1 - boundary_factor * error.tolerance),
             max_mz=alphabet.max.singleton_mz * (1 + boundary_factor * error.tolerance),
@@ -184,7 +184,7 @@ class RawPeakList:
         """
         alphabet_df = NucleotideAlphabet.from_file(
             input_path=alphabet_path, error=error
-        ).to_dataframe()
+        )[0].to_dataframe()
 
         # Match observed m/z to singleton m/z from the alphabet
         peak_df = (

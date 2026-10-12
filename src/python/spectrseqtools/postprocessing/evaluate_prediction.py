@@ -14,7 +14,7 @@ from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import PredictionPostprocessingOptions
 from spectrseqtools.plotting.plot_evaluation import STATUS_ORDER
 
-NUCLEOTIDE_DF = NucleotideAlphabet.from_file(error=ErrorUnderL1Norm()).to_dataframe()
+NUCLEOTIDE_DF = NucleotideAlphabet.from_file(error=ErrorUnderL1Norm())[0].to_dataframe()
 NUC_REPS = {
     **{
         nuc: row[NUCLEOTIDE_DF.get_column_index("names")][0]
@@ -57,7 +57,7 @@ def collect_results(
     Parameters
     ----------
     prediction_files : List[Path]
-        List of paths for prediction results in FASTA format.
+        List of paths for prediction results in TSV format.
     meta_files : List[Path]
         List of paths for meta information in YAML format.
 
@@ -79,10 +79,8 @@ def collect_results(
             meta = yaml.safe_load(f)
             true_seq = Sequence.from_str(meta["true_sequence"]).sequence
 
-        # Read predicted sequence from FASTA file
-        with open(file_path, "r", encoding="utf-8") as f:
-            f.readline()
-            pred_seq = Sequence.from_str(f.readline().rstrip("\n")).sequence
+        # Read predicted sequence from TSV file
+        pred_seq = Sequence.from_file(input_path=file_path).sequence
 
         print(len(true_seq), len(pred_seq))
         print("true:", "".join(true_seq))

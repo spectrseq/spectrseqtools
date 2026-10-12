@@ -30,7 +30,7 @@ def test_infer_composition_with_recursion(seq, tolerance):
     error_calculator = ErrorCalculator.with_metric(tolerance=tolerance)
     alphabet = NucleotideAlphabet.from_file(
         modification_rate=MOD_RATE, error=error_calculator
-    )
+    )[0]
     seq_weight = alphabet.get_seq_weight(seq)
 
     seq_info = SequenceInformation(
@@ -60,7 +60,7 @@ def test_infer_composition_with_matrix(seq, compression, tolerance, memo):
     error_calculator = ErrorCalculator.with_metric(tolerance=tolerance)
     alphabet = NucleotideAlphabet.from_file(
         modification_rate=MOD_RATE, error=error_calculator
-    )
+    )[0]
     seq_weight = alphabet.get_seq_weight(seq)
 
     seq_info = SequenceInformation(
