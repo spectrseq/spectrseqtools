@@ -473,9 +473,7 @@ def generate_singletons_and_fragments(
         and isinstance(scan.precursor_information.charge, int)
     ]
 
-    precursor_charge_limit = max(
-        [DEFAULT_CHARGE_VALUE, *precursor_charges]
-    )
+    precursor_charge_limit = max([DEFAULT_CHARGE_VALUE, *precursor_charges])
 
     if len(ms2_scans_in_grp) > 1:
         average_ms2_scan = ms2_scans_in_grp[0].average_with(ms2_scans_in_grp[1:])
@@ -484,8 +482,7 @@ def generate_singletons_and_fragments(
     average_ms2_scan.pick_peaks()
 
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
-        scan=average_ms2_scan,
-        precursor_charge_limit=precursor_charge_limit
+        scan=average_ms2_scan, precursor_charge_limit=precursor_charge_limit
     )
 
     if len(ms2_peak_list.peaks) == 0:
