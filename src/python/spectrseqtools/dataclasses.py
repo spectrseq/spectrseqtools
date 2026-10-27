@@ -95,7 +95,8 @@ class SequenceInformation:
         return self.su_mass + self.max_variance
 
     @classmethod
-    def default(cls):
+    def default(cls) -> Self:
+        """Return default sequence information."""
         return cls(1.0, 0.0, 0.0, 0, 0, 0)
 
     def validate_sequence(
@@ -137,6 +138,7 @@ class Sequence:
 
     @property
     def reverse(self) -> Self:
+        """Return reversed sequence."""
         return Sequence(sequence=self.sequence[::-1])
 
     @classmethod

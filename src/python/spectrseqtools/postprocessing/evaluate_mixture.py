@@ -14,8 +14,11 @@ from spectrseqtools.parsers import MixturePostprocessingOptions
 
 
 class EvaluationMetric:
+    """Class for metric to evaluate sequence predictions against a given reference."""
+
     @property
     def dtype(self) -> pl.Struct:
+        """Return datatypes for dictionary entries."""
         return pl.Struct(
             [
                 pl.Field("predicted_string", pl.String),
@@ -28,6 +31,21 @@ class EvaluationMetric:
         )
 
     def score_query(self, query: Sequence, reference: Sequence) -> dict:
+        """Score query in relation to reference sequence.
+
+        Parameters
+        ----------
+        query : Sequence
+            Query sequence.
+        reference : Sequence
+            Reference sequence.
+
+        Returns
+        -------
+        dict
+            Dictionary with meta information about best scoring.
+
+        """
         fw_score, fw_idx = self.align(query=query, reference=reference)
         bw_score, bw_idx = self.align(query=query.reverse, reference=reference)
 
@@ -58,6 +76,23 @@ class EvaluationMetric:
 
     @staticmethod
     def align(query: Sequence, reference: Sequence) -> Tuple[float, int]:
+        """Align query to reference sequence to find best fit.
+
+        Parameters
+        ----------
+        query : Sequence
+            Query sequence.
+        reference : Sequence
+            Reference sequence.
+
+        Returns
+        -------
+        float
+            Score of best fit.
+        int
+            Position index of best fit.
+
+        """
         pred_len = len(query.sequence)
 
         targets = [
@@ -147,7 +182,11 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
     return df_expanded_alignment
 
 
-def interpret_alignment_results(df_alignment, target_sequence, masses):
+def interpret_alignment_results(
+    df_alignment: pl.DataFrame, target_sequence: str, masses: pl.DataFrame
+) -> pl.DataFrame:
+    """Interpret alignment results."""
+    # TODO: Clean up function and possibly integrate it into plotting.
     match_rows = []
 
     for r in df_alignment.iter_rows(named=True):

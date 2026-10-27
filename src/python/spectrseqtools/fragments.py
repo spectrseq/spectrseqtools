@@ -572,6 +572,7 @@ class RawFragments:
 
     @property
     def ms1_fragments(self) -> Self:
+        """Return only MS1 fragments."""
         return RawFragments(
             group_idx=self.group_idx,
             fragments=self.fragments.filter(pl.col("is_ms1_mass")),
@@ -579,6 +580,7 @@ class RawFragments:
 
     @property
     def ms2_fragments(self) -> Self:
+        """Return only MS2 fragments."""
         fragments = self.fragments.filter(~pl.col("is_ms1_mass"))
         if self.group_idx == -1:
             fragments = fragments.drop(["is_ms1_mass", "ms1_mass_group"])

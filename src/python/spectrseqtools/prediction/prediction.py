@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Prediction of sequence and fragments."""
 
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 
 import polars as pl
 import tqdm
@@ -84,7 +84,8 @@ class Predictor:
 
         self.options = options
 
-    def predict(self):
+    def predict(self) -> List[str]:
+        """Predict all sequences from file."""
         # Initialize list of nucleotide alphabets
         alphabets = NucleotideAlphabet.from_file(
             modification_rate=self.options.modification_rate,
