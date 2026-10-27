@@ -490,8 +490,17 @@ def generate_singletons_and_fragments(
 
     fragments = ms2_peak_list.to_fragments(tolerance=error.tolerance)
 
+    # TODO: Replace temporary fix for non-determinism with truly deterministic solution
     fragments = fragments.rename({"neutral_mass": "observed_mass"}).filter(
-        pl.col("observed_mass") < intact_mass
+        (pl.col("observed_mass") < intact_mass)
+        & (240.0 < pl.col("observed_mass"))
+        & (200.0 < pl.col("intensity"))
+    )
+
+    fragments = (
+        fragments.drop("ppm_group")
+        .sort("observed_mass")
+        .with_row_index(name="ppm_group")
     )
 
     fragments = fragments.with_columns(
