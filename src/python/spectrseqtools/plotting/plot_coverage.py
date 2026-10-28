@@ -4,14 +4,14 @@
 import altair as alt
 import polars as pl
 
-from spectrseqtools.parsers import MixturePlottingOptions
+from spectrseqtools.parsers import CoveragePlottingOptions
 from spectrseqtools.plotting import LEGEND_PARAMS, select_scale
 
 STATUS_ORDER = ["match", "mismatch", "swap"]
 STATUS_COLORS = {"match": "black", "mismatch": "red", "swap": "gold"}
 
 
-def plot_coverage(options: MixturePlottingOptions) -> None:
+def plot_coverage(options: CoveragePlottingOptions) -> None:
     """Plot predicted sequences in mixture aligned to true sequence.
 
     Parameters

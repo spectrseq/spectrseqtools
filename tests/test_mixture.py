@@ -11,10 +11,10 @@ from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.multiplexing import pre_process_multiplexing
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import (
-    MixturePlottingOptions,
+    CoveragePlottingOptions,
     MixturePostprocessingOptions,
-    MixturePreprocessingOptions,
     PredictionOptions,
+    PreprocessingOptions,
 )
 from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.postprocessing.evaluate_mixture import evaluate_mixture
@@ -45,7 +45,7 @@ def test_preprocess_mixture(testcase):
     if os.path.isfile(base_path / "fragments.raw"):
         # Preprocess raw data
         _, singletons, _ = pre_process_multiplexing(
-            options=MixturePreprocessingOptions(
+            options=PreprocessingOptions(
                 input=base_path / "fragments.raw",
                 meta=base_path / "fragments.meta.yaml",
                 output_dir=base_path,
@@ -155,7 +155,7 @@ def test_evaluate_mixture(testcase):
     )
 
     plot_coverage(
-        MixturePlottingOptions(
+        CoveragePlottingOptions(
             input=base_path / "df_expanded_alignment.csv",
             output_path=base_path / "alignment.html",
         )

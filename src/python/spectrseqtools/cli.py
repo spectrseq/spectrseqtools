@@ -39,9 +39,12 @@ def main():
 
     # Preprocess raw data
     if options.preprocessing is not None:
-        Preprocessor(options=options.preprocessing).preprocess()
+        if options.preprocessing.singular_mode:
+            Preprocessor(options=options.preprocessing).preprocess()
+        else:
+            pre_process_multiplexing(options=options.preprocessing)
 
-    # Predict sequence
+    # Predict sequences
     if options.prediction is not None:
         Predictor(options=options.prediction).predict()
 
@@ -52,6 +55,9 @@ def main():
 
         if options.postprocessing.run_statistics is not None:
             evaluate_run_statistics(options=options.postprocessing.run_statistics)
+
+        if options.postprocessing.mixture is not None:
+            evaluate_mixture(options=options.postprocessing.mixture)
 
     # Plot (intermediate) prediction results
     if options.plotting is not None:
@@ -70,13 +76,5 @@ def main():
         if options.plotting.run_statistics is not None:
             plot_run_statistics(options=options.plotting.run_statistics)
 
-    # Analyze mixtures
-    if options.mixture is not None:
-        if options.mixture.preprocessing is not None:
-            pre_process_multiplexing(options=options.mixture.preprocessing)
-        if options.mixture.prediction is not None:
-            Predictor(options=options.mixture.prediction).predict()
-        if options.mixture.postprocessing is not None:
-            evaluate_mixture(options=options.mixture.postprocessing)
-        if options.mixture.plotting is not None:
-            plot_coverage(options=options.mixture.plotting)
+        if options.plotting.coverage is not None:
+            plot_coverage(options=options.plotting.coverage)

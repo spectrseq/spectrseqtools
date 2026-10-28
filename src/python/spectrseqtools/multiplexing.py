@@ -14,7 +14,7 @@ from scipy.signal import find_peaks
 
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
-from spectrseqtools.parsers import MixturePreprocessingOptions
+from spectrseqtools.parsers import PreprocessingOptions
 from spectrseqtools.preprocessing.deconvolution import (
     DEFAULT_CHARGE_VALUE,
     MS1Deconvoluter,
@@ -548,7 +548,7 @@ def generate_singletons_and_fragments(
 
 
 def pre_process_multiplexing(
-    options: MixturePreprocessingOptions,
+    options: PreprocessingOptions,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     start_time = options.min_time
     end_time = options.max_time
