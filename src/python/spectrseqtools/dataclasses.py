@@ -232,10 +232,11 @@ class PredictedSequence:
             Path to input file in TSV format.
 
         """
-        data = pl.read_csv(input_path, separator="\t")
+        data = pl.read_csv(input_path, separator="\t").row(named=True)
+        seq_data = {col: data[col] for col in SequenceInformation.__annotations__}
         return cls(
-            sequence=Sequence.from_str(data["sequence"]),
-            meta=SequenceInformation(*data),
+            sequence=Sequence.from_str(data["prediction"]),
+            meta=SequenceInformation(*seq_data),
         )
 
     @classmethod
