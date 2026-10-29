@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import ddargparse
-import polars as pl
 
 from spectrseqtools.enums import (
     AveragineBackbone,
@@ -275,7 +274,7 @@ class PreprocessingOptions(ddargparse.OptionsBase):
 class PredictionOptions(ddargparse.OptionsBase):
     """Prediction of sequence based on preprocessed fragments"""
 
-    fragments: Path | pl.DataFrame = field(
+    fragments: Path = field(
         metadata={"help": "Path to TSV table of observed fragments"},
     )
     meta: Path = field(
@@ -291,7 +290,7 @@ class PredictionOptions(ddargparse.OptionsBase):
             "help": "Path to TSV file that shall contain the predicted sequence."
         },
     )
-    alphabet: Path | pl.DataFrame | None = field(
+    alphabet: Path | None = field(
         default=None,
         metadata={
             "help": "Path to file containing nucleotide alphabet. If preprocessing was "
