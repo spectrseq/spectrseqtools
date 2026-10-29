@@ -149,6 +149,30 @@ class PreprocessingOptions(ddargparse.OptionsBase):
             "(used in ms_deisotope package as 'minimum_intensity')."
         },
     )
+    singular_mode: bool = field(
+        default=True,
+        metadata={
+            "help": "Flag whether raw data stems from singular RNA (i.e. not mixture)."
+        },
+    )
+    window_size: float = field(
+        default=0.2,
+        metadata={
+            "help": "Window size to consider for peak selection (for mixtures only).",
+        },
+    )
+    min_time: float | None = field(
+        default=None,
+        metadata={
+            "help": "First time point to consider for peak selection (optional).",
+        },
+    )
+    max_time: float | None = field(
+        default=None,
+        metadata={
+            "help": "Last time point to consider for peak selection (optional).",
+        },
+    )
     tolerance: float = field(
         default=10e-6,
         metadata={"help": "Error tolerance to consider masses identical."},
@@ -263,11 +287,8 @@ class PredictionOptions(ddargparse.OptionsBase):
     )
     sequence_prediction: Path = field(
         metadata={
-            "help": "Path to FASTA file that shall contain the predicted sequence."
+            "help": "Path to TSV file that shall contain the predicted sequence."
         },
-    )
-    sequence_name: str = field(
-        metadata={"help": "Header in FASTA output file."},
     )
     alphabet: Path | None = field(
         default=None,
@@ -382,7 +403,7 @@ class FragmentPlotOptions(ddargparse.OptionsBase):
         metadata={"help": "Path to fragment file in TSV format"},
     )
     prediction: Path = field(
-        metadata={"help": "Path to prediction file in FASTA format."},
+        metadata={"help": "Path to prediction file in TSV format."},
     )
     meta: Path = field(
         metadata={"help": "Path to YAML with meta information."},
@@ -483,6 +504,20 @@ class RunStatisticsPlotOptions(ddargparse.OptionsBase):
 
 
 @dataclass
+class CoveragePlottingOptions(ddargparse.OptionsBase):
+    """Plotting of coverage with predicted sequences in complex mixture."""
+
+    input: Path = field(
+        metadata={"help": "Path to TSV file containing evaluation results."},
+    )
+    output_path: Path = field(
+        metadata={
+            "help": "Output path for HTML with plotted evaluation results.",
+        },
+    )
+
+
+@dataclass
 class PlottingOptions(ddargparse.OptionsBase):
     """Plotting of (intermediate) results of sequence prediction."""
 
@@ -491,6 +526,7 @@ class PlottingOptions(ddargparse.OptionsBase):
     spectrum: SpectrumPlotOptions | None
     evaluation: EvaluationPlotOptions | None
     run_statistics: RunStatisticsPlotOptions | None
+    coverage: CoveragePlottingOptions | None
 
 
 @dataclass
@@ -498,7 +534,7 @@ class PredictionPostprocessingOptions(ddargparse.OptionsBase):
     """Evaluation of prediction results."""
 
     prediction: list[Path] = field(
-        metadata={"help": "List of paths to prediction files in FASTA format."},
+        metadata={"help": "List of paths to prediction files in TSV format."},
     )
     meta: list[Path] = field(
         metadata={"help": "List of paths to YAML files with meta information."},
@@ -535,11 +571,32 @@ class RunStatisticsPostprocessingOptions(ddargparse.OptionsBase):
 
 
 @dataclass
+class MixturePostprocessingOptions(ddargparse.OptionsBase):
+    """Evaluation of prediction results of mixtures."""
+
+    prediction: Path = field(
+        metadata={"help": "Path to prediction file in TSV format."},
+    )
+    fragments: Path = field(
+        metadata={"help": "Path to fragment file in TSV format"},
+    )
+    meta: Path = field(
+        metadata={"help": "Path to YAML file with meta information."},
+    )
+    output_path: Path = field(
+        metadata={
+            "help": "Output path for evaluation results in CSV format.",
+        },
+    )
+
+
+@dataclass
 class PostprocessingOptions(ddargparse.OptionsBase):
     """Postprocessing of prediction results."""
 
     prediction: PredictionPostprocessingOptions | None
     run_statistics: RunStatisticsPostprocessingOptions | None
+    mixture: MixturePostprocessingOptions | None
 
 
 @dataclass

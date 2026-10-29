@@ -18,6 +18,7 @@ from pulp import (
 
 from spectrseqtools.dataclasses import (
     PredictedFragments,
+    PredictedSequence,
     Prediction,
     Sequence,
     SequenceInformation,
@@ -311,7 +312,8 @@ class LinearProgramInstance:
 
         # Interpret solution
         return Prediction(
-            sequence=self._get_sequence(), fragments=self._get_fragments()
+            sequence=PredictedSequence(sequence=self._get_sequence(), meta=self.seq),
+            fragments=self._get_fragments(),
         )
 
     def _get_sequence(self) -> Sequence:

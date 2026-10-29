@@ -33,7 +33,7 @@ def plot_singletons(options: SingletonPlotOptions) -> None:
     )
     alphabet = NucleotideAlphabet.from_file(
         error=preprocessor.error, input_path=preprocessor.file_settings.alphabet_path
-    ).to_dataframe()
+    )[0].to_dataframe()
     nuc_reps = {
         **{
             nuc: row[alphabet.get_column_index("names")][0]
@@ -53,7 +53,7 @@ def plot_singletons(options: SingletonPlotOptions) -> None:
         for nuc in NucleotideAlphabet.from_file(
             input_path=preprocessor.file_settings.alphabet_path,
             error=preprocessor.error,
-        ).alphabet
+        )[0].alphabet
     ]
     singletons = pl.read_csv(
         preprocessor.file_settings.updated_alphabet_path, separator="\t"

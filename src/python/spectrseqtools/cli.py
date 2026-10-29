@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """Module for command-line interface."""
 
+from spectrseqtools.multiplexing import pre_process_multiplexing
 from spectrseqtools.parsers import Options
+from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.plotting.plot_evaluation import plot_evaluation
 from spectrseqtools.plotting.plot_fragments import plot_fragments
 from spectrseqtools.plotting.plot_run_statistics import plot_run_statistics
 from spectrseqtools.plotting.plot_singletons import plot_singletons
 from spectrseqtools.plotting.plot_spectrum import plot_spectrum
+from spectrseqtools.postprocessing.evaluate_mixture import evaluate_mixture
 from spectrseqtools.postprocessing.evaluate_prediction import evaluate_prediction
 from spectrseqtools.postprocessing.evaluate_run_statistics import (
     evaluate_run_statistics,
@@ -36,9 +39,12 @@ def main():
 
     # Preprocess raw data
     if options.preprocessing is not None:
-        Preprocessor(options=options.preprocessing).preprocess()
+        if options.preprocessing.singular_mode:
+            Preprocessor(options=options.preprocessing).preprocess()
+        else:
+            pre_process_multiplexing(options=options.preprocessing)
 
-    # Predict sequence
+    # Predict sequences
     if options.prediction is not None:
         Predictor(options=options.prediction).predict()
 
@@ -49,6 +55,9 @@ def main():
 
         if options.postprocessing.run_statistics is not None:
             evaluate_run_statistics(options=options.postprocessing.run_statistics)
+
+        if options.postprocessing.mixture is not None:
+            evaluate_mixture(options=options.postprocessing.mixture)
 
     # Plot (intermediate) prediction results
     if options.plotting is not None:
@@ -66,3 +75,6 @@ def main():
 
         if options.plotting.run_statistics is not None:
             plot_run_statistics(options=options.plotting.run_statistics)
+
+        if options.plotting.coverage is not None:
+            plot_coverage(options=options.plotting.coverage)
