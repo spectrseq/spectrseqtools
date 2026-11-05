@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Postprocessing of predictions for complex mixture by evaluation thereof."""
 
+from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
@@ -11,6 +12,18 @@ from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_seqs
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.file_settings import load_alphabet
 from spectrseqtools.parsers import MixturePostprocessingOptions
+
+
+@dataclass
+class EvaluationOutput:
+    """Class for output of mixture evaluation."""
+
+    predicted_string: str
+    best_matching_target_string: str
+    normalized_damerau_levenshtein_distance: float
+    target_start_pos: int
+    target_end_pos: int
+    is_backward: bool
 
 
 class EvaluationMetric:
@@ -30,7 +43,7 @@ class EvaluationMetric:
             ]
         )
 
-    def score_query(self, query: Sequence, reference: Sequence) -> dict:
+    def score_query(self, query: Sequence, reference: Sequence) -> EvaluationOutput:
         """Score query in relation to reference sequence.
 
         Parameters
@@ -42,36 +55,36 @@ class EvaluationMetric:
 
         Returns
         -------
-        dict
-            Dictionary with meta information about best scoring.
+        EvaluationOutput
+            Meta information about best scoring.
 
         """
         fw_score, fw_idx = self.align(query=query, reference=reference)
         bw_score, bw_idx = self.align(query=query.reverse, reference=reference)
 
         if fw_score <= bw_score:
-            res = {
-                "predicted_string": query.to_str(),
-                "best_matching_target_string": reference.to_str()[
+            res = EvaluationOutput(
+                predicted_string=query.to_str(),
+                best_matching_target_string=reference.to_str()[
                     fw_idx : fw_idx + len(query.sequence)
                 ],
-                "normalized_damerau_levenshtein_distance": fw_score,
-                "target_start_pos": fw_idx,
-                "target_end_pos": fw_idx + len(query.sequence),
-                "is_backward": False,
-            }
+                normalized_damerau_levenshtein_distance=fw_score,
+                target_start_pos=fw_idx,
+                target_end_pos=fw_idx + len(query.sequence),
+                is_backward=False,
+            )
 
         else:
-            res = {
-                "predicted_string": query.to_str(),
-                "best_matching_target_string": reference.to_str()[
+            res = EvaluationOutput(
+                predicted_string=query.to_str(),
+                best_matching_target_string=reference.to_str()[
                     bw_idx : bw_idx + len(query.sequence)
                 ],
-                "normalized_damerau_levenshtein_distance": bw_score,
-                "target_start_pos": bw_idx,
-                "target_end_pos": bw_idx + len(query.sequence),
-                "is_backward": True,
-            }
+                normalized_damerau_levenshtein_distance=bw_score,
+                target_start_pos=bw_idx,
+                target_end_pos=bw_idx + len(query.sequence),
+                is_backward=True,
+            )
         return res
 
     @staticmethod
@@ -143,9 +156,11 @@ def evaluate_mixture(options: MixturePostprocessingOptions) -> None:
     df_align = data.with_columns(
         pl.col("prediction")
         .map_elements(
-            lambda seq: metric.score_query(
-                query=Sequence(Sequence.from_str(seq).to_encoding(masses)),
-                reference=Sequence(sequence=target),
+            lambda seq: (
+                metric.score_query(
+                    query=Sequence(Sequence.from_str(seq).to_encoding(masses)),
+                    reference=Sequence(sequence=target),
+                ).__dict__
             ),
             return_dtype=metric.dtype,
         )
