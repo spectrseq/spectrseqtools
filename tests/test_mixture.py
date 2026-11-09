@@ -8,7 +8,7 @@ from clr_loader import get_mono
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.enums import SolverType
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.multiplexing import pre_process_multiplexing
+from spectrseqtools.multiplexing import preprocess_multiplexing
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 from spectrseqtools.parsers import (
     CoveragePlottingOptions,
@@ -44,7 +44,7 @@ def test_preprocess_mixture(testcase):
     # Preprocess raw input data if given
     if os.path.isfile(base_path / "fragments.raw"):
         # Preprocess raw data
-        _, singletons, _ = pre_process_multiplexing(
+        _, singletons, _ = preprocess_multiplexing(
             options=PreprocessingOptions(
                 input=base_path / "fragments.raw",
                 meta=base_path / "fragments.meta.yaml",

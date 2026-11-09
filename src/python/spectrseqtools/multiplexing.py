@@ -547,7 +547,7 @@ def generate_singletons_and_fragments(
     return fragments, singletons
 
 
-def pre_process_multiplexing(
+def preprocess_multiplexing(
     options: PreprocessingOptions,
 ) -> Tuple[pl.DataFrame, pl.DataFrame, dict]:
     start_time = options.min_time

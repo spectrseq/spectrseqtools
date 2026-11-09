@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Module for command-line interface."""
 
-from spectrseqtools.multiplexing import pre_process_multiplexing
+from spectrseqtools.multiplexing import preprocess_multiplexing
 from spectrseqtools.parsers import Options
 from spectrseqtools.plotting.plot_coverage import plot_coverage
 from spectrseqtools.plotting.plot_evaluation import plot_evaluation
@@ -43,7 +43,7 @@ def main():
         if options.preprocessing.singular_mode:
             Preprocessor(options=options.preprocessing).preprocess()
         else:
-            pre_process_multiplexing(options=options.preprocessing)
+            preprocess_multiplexing(options=options.preprocessing)
 
     # Predict sequences
     if options.prediction is not None:
