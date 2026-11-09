@@ -116,7 +116,7 @@ def test_predict_mixture(testcase):
                         pred_seq.fmt(
                             nucleotide_alphabet=NucleotideAlphabet.from_file(
                                 error=ErrorCalculator.with_metric()
-                            )[0]
+                            )
                         ),
                     )
                     found_match = True

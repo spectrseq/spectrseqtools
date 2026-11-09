@@ -87,7 +87,7 @@ class Predictor:
     def predict(self) -> List[str]:
         """Predict all sequences from file."""
         # Initialize list of nucleotide alphabets
-        alphabets = NucleotideAlphabet.from_file(
+        alphabets = NucleotideAlphabet.from_file_multi(
             modification_rate=self.options.modification_rate,
             input_path=self.file_settings.alphabet_path,
             error=self.classifier.error,

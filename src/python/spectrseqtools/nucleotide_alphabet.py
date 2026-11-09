@@ -82,7 +82,7 @@ class NucleotideAlphabet:
         error: ErrorCalculator,
         modification_rate: float = 0.5,
         input_path: Path = None,
-    ) -> Self | List[Self]:
+    ) -> Self:
         """
         Initialize nucleotide alphabet from file.
 
@@ -99,6 +99,33 @@ class NucleotideAlphabet:
         # Read nucleoside masses from file
         masses = load_alphabet(input_path=input_path)
 
+        return cls.from_dataframe(
+            modification_rate=modification_rate, error=error, masses=masses
+        )
+
+    @classmethod
+    def from_file_multi(
+        cls,
+        error: ErrorCalculator,
+        modification_rate: float = 0.5,
+        input_path: Path = None,
+    ) -> List[Self]:
+        """
+        Initialize multiple nucleotide alphabets from file.
+
+        Parameters
+        ----------
+        modification_rate : float
+            Maximum percentage of modification in sequence.
+        error : ErrorCalculator
+            Error calculator.
+        input_path : Path | None
+            Path to file with nucleoside information for all alphabets.
+
+        """
+        # Read nucleoside masses from file
+        masses = load_alphabet(input_path=input_path)
+
         alphabets = []
         groups = masses.select("ms1_mass_group").unique().to_series().to_list()
         for idx in sorted(groups):
@@ -109,9 +136,6 @@ class NucleotideAlphabet:
                     masses=masses.filter(pl.col("ms1_mass_group") == idx),
                 )
             )
-
-        # if len(groups) == 1:
-        #     return alphabets[0]
 
         return alphabets
 
