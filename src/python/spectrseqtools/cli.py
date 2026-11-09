@@ -24,6 +24,7 @@ from spectrseqtools.simulation.simulate_metadata import (
 
 
 # TODO: Adapt to linting of Ruff v0.16
+# TODO: Replace generic Exceptions (or ValueError or IndexError for LP) with customized
 def main():
     """Parse options to select and execute subcommands."""
     options = Options.from_cli_args(args=None)

@@ -297,7 +297,6 @@ class SequencePredictor:
                 fragments=fragments,
                 estimator=self.estimator,
             )
-        # TODO: Replace generic Exception, within custom one
         except Exception:
             return Prediction.default(meta=self.inferrer.seq)
 
@@ -328,9 +327,7 @@ class SequencePredictor:
                 skeleton_seq=skeleton_seq,
                 solver_params=solver_params,
             )
-        # TODO: Replace generic ValueError, within custom one
         except ValueError or IndexError:
-            # TODO: Replace IndexError for LP initialization with custom one
             return Prediction.default(meta=self.inferrer.seq)
 
         print("Number of internal fragments after filter: ", len(fragments.internal))
@@ -351,7 +348,6 @@ class SequencePredictor:
             )
 
             return lp_instance.evaluate(solver_params=solver_params)
-        # TODO: Replace generic Exception, within custom one
         except Exception:
             return Prediction.default(meta=self.inferrer.seq)
 
