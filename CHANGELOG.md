@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/spectrseq/spectrseqtools/compare/v0.3.0...v0.4.0) (2026-11-09)
+
+
+### Features
+
+* add analysis of complex mixtures ([#76](https://github.com/spectrseq/spectrseqtools/issues/76)) ([080414f](https://github.com/spectrseq/spectrseqtools/commit/080414f7cdec9285f3fb09674498f665a5b0ff60))
+
 ## [0.3.0](https://github.com/spectrseq/spectrseqtools/compare/v0.2.1...v0.3.0) (2026-09-07)
 
 
