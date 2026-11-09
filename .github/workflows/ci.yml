@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_LOCK_TIMEOUT: 600
+
 jobs:
   fmt:
     runs-on: ubuntu-latest

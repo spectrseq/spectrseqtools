@@ -13,6 +13,9 @@ permissions:
   issues: write
   pull-requests: write
 
+env:
+  UV_LOCK_TIMEOUT: 600
+
 jobs:
   release-please:
     runs-on: ubuntu-latest

@@ -73,9 +73,8 @@ def test_testcase(testcase):
             fragments=base_path / "fragments.tsv",
             meta=base_path / "fragments.preprocessed.meta.yaml",
             alphabet=alphabet_path,
-            sequence_prediction=base_path / "fragments.prediction.fasta",
-            fragment_predictions=base_path / "fragments.prediction.tsv",
-            sequence_name=f"{testcase}",
+            sequence_prediction=base_path / "fragments.prediction.sequence.tsv",
+            fragment_predictions=base_path / "fragments.prediction.fragments.tsv",
             intensity_cutoff_percentile=75,
             # solver=SolverType.CBC,
             # solver=SolverType.GUROBI,
@@ -89,7 +88,7 @@ def test_testcase(testcase):
     print("True sequence =\t\t", true_seq)
     print(
         "Full sequence =\t\t",
-        prediction.sequence.fmt(
+        prediction.sequence.sequence.fmt(
             nucleotide_alphabet=NucleotideAlphabet.from_file(
                 error=ErrorCalculator.with_metric()
             )
@@ -105,10 +104,5 @@ def test_testcase(testcase):
     # plots[2].save(base_path / "fragments.plot.internal.html")
     plots[3].save(base_path / "fragments.plot.html")
 
-    # Save updated meta data
-    meta["predicted_sequence"] = prediction.sequence.to_str()
-    with open(base_path / "fragments.testing.meta.yaml", "w") as f:
-        yaml.safe_dump(meta, f)
-
     # Assert whether the sequences match
-    assert prediction.sequence == true_seq
+    assert prediction.sequence.sequence == true_seq

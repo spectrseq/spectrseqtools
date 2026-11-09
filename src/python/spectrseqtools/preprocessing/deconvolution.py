@@ -422,6 +422,7 @@ class MS2Deconvoluter(ScanDeconvoluter):
         self,
         scan: ms_ditp.data_source.Scan,
         priority_list: List[ms_ditp.processor.PriorityTarget] | None = None,
+        precursor_charge_limit: int | None = None,
     ) -> DeisotopedPeakList:
         """
         Obtain deconvoluted peaks from MS2 scan.
@@ -433,6 +434,8 @@ class MS2Deconvoluter(ScanDeconvoluter):
             Deconvolution parameters (mainly used by ms_deisotope).
         priority_list : List[ms_ditp.processor.PriorityTarget] | None
             List of ms_deisotope 'PriorityTarget' peak objects.
+        precursor_charge_limit : int
+            Maximum precursor charge imposed in the charge range parameter.
 
         Returns
         -------
@@ -448,10 +451,17 @@ class MS2Deconvoluter(ScanDeconvoluter):
         # Convert scan to centroid data
         scan.pick_peaks()
 
+        parameters = self.to_scan_dependent_dict(scan=scan, priority_list=priority_list)
+
+        if self.charge_range is None and precursor_charge_limit is not None:
+            parameters["charge_range"] = (
+                (-precursor_charge_limit, -1)
+                if scan.polarity < 0
+                else (1, precursor_charge_limit)
+            )
+
         # Deconvolute/deisotope with ms_deisotope
-        peak_set = ms_ditp.deconvolute_peaks(
-            **self.to_scan_dependent_dict(scan=scan, priority_list=priority_list)
-        ).peak_set
+        peak_set = ms_ditp.deconvolute_peaks(**parameters).peak_set
 
         # Return default if scan does not contain any deisotoped peaks
         if len(peak_set) <= 0:

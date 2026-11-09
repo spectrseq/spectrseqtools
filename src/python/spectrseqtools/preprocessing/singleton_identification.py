@@ -82,7 +82,7 @@ class RawPeakList:
 
     @classmethod
     def default(cls) -> Self:
-        """Return empty peak list"""
+        """Return empty peak list."""
         return RawPeakList(peaks=[])
 
     @classmethod
