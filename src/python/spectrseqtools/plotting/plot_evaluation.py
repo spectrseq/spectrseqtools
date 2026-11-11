@@ -174,6 +174,8 @@ def select_x_axis(param: str) -> alt.X:
 
     """
     match param:
+        case "tags":
+            return alt.X("tags:N", title="5'- and 3'-tag")
         case "modification_rate":
             return alt.X("modification_rate:N", title="Modification rate")
         case "num_replicates":
