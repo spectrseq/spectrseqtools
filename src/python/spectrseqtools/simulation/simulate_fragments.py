@@ -12,6 +12,7 @@ import yaml
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.file_settings import load_alphabet
 from spectrseqtools.parsers import FragmentSimulationOptions
+from spectrseqtools.prediction.fragment_classification import select_end_tag, select_start_tag
 
 PHANTOM_FRAGMENT_MAGNITUDE = 1000
 NO_FRAGMENTATION_PROBABILITY = 0.05
@@ -42,8 +43,8 @@ def simulate_fragments(options: FragmentSimulationOptions) -> None:
     extra_mass_dict = build_extra_mass_dict(
         element_mass_path=options.elements,
         fragmentation_type=config["fragmentation_type"],
-        start_tag=meta["5_prime_tag"],
-        end_tag=meta["3_prime_tag"],
+        start_tag=select_start_tag(tag=meta["5_prime_tag"]),
+        end_tag=select_end_tag(tag=meta["3_prime_tag"]),
     )
 
     # Add sequence mass to meta dict

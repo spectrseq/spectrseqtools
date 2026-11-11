@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from spectrseqtools.enums import EndTag, StartTag
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import ELEMENT_MASSES
 from spectrseqtools.fragments import RawFragments, StandardUnitFragments
@@ -49,8 +50,8 @@ class FragmentClassifier:
             meta = yaml.safe_load(f)
 
         # Read tags from meta file
-        start_tag = meta.setdefault("5_prime_tag", 555.1294)
-        end_tag = meta.setdefault("3_prime_tag", 455.1491)
+        start_tag = select_start_tag(tag=meta.setdefault("5_prime_tag", 555.1294))
+        end_tag = select_end_tag(tag=meta.setdefault("3_prime_tag", 455.1491))
 
         # Initialize dict with masses for 5'-end of fragments
         start_dict = {
@@ -128,3 +129,53 @@ class FragmentClassifier:
         return fragments.standardize(
             fragmentation_dict=self.fragmentation_options, error=self.error
         )
+
+
+def select_start_tag(tag: StartTag | float) -> float:
+    """Select mass for 5'-tag."""
+    # Return float value directly
+    if isinstance(tag, float):
+        return tag
+
+    # Convert string into Enum object
+    if isinstance(tag, str):
+        tag = StartTag(tag)
+
+    # Select mass matching tag
+    match tag:
+        case StartTag.OH:
+            return 18.009482
+        case StartTag.P:
+            return 97.975308
+        case StartTag.NILS:
+            return 170.98
+        case StartTag.COMMERCIAL:
+            return 555.1294
+        case _:
+            raise NotImplementedError(f"Support for '{tag}' is currently not given.")
+
+
+def select_end_tag(tag: EndTag | float) -> float:
+    """Select mass for 3'-tag."""
+    # Return float value directly
+    if isinstance(tag, float):
+        return tag
+
+    # Convert string into Enum object
+    if isinstance(tag, str):
+        tag = EndTag(tag)
+
+    # Select mass matching tag
+    match tag:
+        case EndTag.OH:
+            return 18.009482
+        case EndTag.CP:
+            return 79.965826
+        case EndTag.P:
+            return 97.975308
+        case EndTag.NILS:
+            return 728.2
+        case EndTag.COMMERCIAL:
+            return 455.1491
+        case _:
+            raise NotImplementedError(f"Support for '{tag}' is currently not given.")

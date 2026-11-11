@@ -14,6 +14,7 @@ from spectrseqtools.enums import AveragineBackbone
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
 from spectrseqtools.parsers import PreprocessingOptions
+from spectrseqtools.prediction.fragment_classification import select_end_tag, select_start_tag
 from spectrseqtools.preprocessing.deconvolution import (
     DeisotopedPeakList,
     MS1Deconvoluter,
@@ -339,7 +340,8 @@ class Preprocessor:
             fragments.filter(
                 (pl.col("is_precursor_deisotoped"))
                 & (
-                    self.meta_params["5_prime_tag"] + self.meta_params["3_prime_tag"]
+                    select_start_tag(tag=self.meta_params["5_prime_tag"])
+                    + select_end_tag(tag=self.meta_params["3_prime_tag"])
                     <= pl.col("neutral_mass")
                 )
                 & (

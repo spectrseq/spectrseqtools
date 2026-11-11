@@ -32,3 +32,22 @@ class SolverType(Enum):
     CBC = "cbc"
     GUROBI = "gurobi"
     HIGHS = "highs"
+
+
+class StartTag(Enum):
+    """Enum of end tags for sequences."""
+
+    OH = "OH"
+    P = "P"
+    NILS = "nils"
+    COMMERCIAL = "commercial"
+
+
+class EndTag(Enum):
+    """Enum of end tags for sequences."""
+
+    OH = "OH"
+    P = "P"
+    CP = "CP"
+    NILS = "nils"
+    COMMERCIAL = "commercial"
