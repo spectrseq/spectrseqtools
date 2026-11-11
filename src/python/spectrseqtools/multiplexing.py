@@ -15,7 +15,10 @@ from scipy.signal import find_peaks
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
 from spectrseqtools.parsers import PreprocessingOptions
-from spectrseqtools.prediction.fragment_classification import select_end_tag, select_start_tag
+from spectrseqtools.prediction.fragment_classification import (
+    select_end_tag,
+    select_start_tag,
+)
 from spectrseqtools.preprocessing.deconvolution import (
     DEFAULT_CHARGE_VALUE,
     MS1Deconvoluter,

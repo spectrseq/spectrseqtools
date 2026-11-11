@@ -12,7 +12,10 @@ import yaml
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.file_settings import load_alphabet
 from spectrseqtools.parsers import FragmentSimulationOptions
-from spectrseqtools.prediction.fragment_classification import select_end_tag, select_start_tag
+from spectrseqtools.prediction.fragment_classification import (
+    select_end_tag,
+    select_start_tag,
+)
 
 PHANTOM_FRAGMENT_MAGNITUDE = 1000
 NO_FRAGMENTATION_PROBABILITY = 0.05
