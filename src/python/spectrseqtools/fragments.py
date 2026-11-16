@@ -672,6 +672,19 @@ class RawFragments:
             for (mass, frags) in fragmentation_dict.items()
         }
 
+        print("Considered fragmentation masses (divided by precision):")
+        print(
+            [
+                {
+                    weight: fragmentation
+                    for (weight, fragmentation) in frag_dict.items()
+                    if len(fragmentation) > 0
+                }
+                for frag_dict in [intact_dict, start_dict, end_dict, internal_dict]
+            ]
+        )
+        print()
+
         # Copy each fragment for each unique fragmentation weights and set standard-unit mass
         fragments = pl.concat(
             [

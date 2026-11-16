@@ -12,6 +12,7 @@ from spectrseqtools.dataclasses import (
     FilterParameters,
     Prediction,
     PredictionFileSettings,
+    Sequence,
     SequenceInformation,
     SolverParameters,
 )
@@ -222,6 +223,19 @@ class SequencePredictor:
             seq=seq_info,
         )
         self.inferrer = inferrer
+
+        if "true_sequence" in meta:
+            seq = Sequence.from_str(meta["true_sequence"]).sequence
+            seq_weight = inferrer.alphabet.get_seq_weight(seq)
+            print("True mass:\t\t", seq_weight)
+            print("Measured mass (SU):\t", inferrer.seq.su_mass)
+            print("Within range (10ppm):\t",
+                inferrer.is_valid_mass(
+                    mass=abs(seq_weight - inferrer.seq.su_mass),
+                    obs_masses=[inferrer.seq.obs_mass],
+                ),
+            )
+            print()
 
         print("Alphabet after singleton reduction:")
         self.inferrer.print_alphabet()
