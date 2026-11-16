@@ -214,14 +214,19 @@ class StandardUnitFragments:
 
     def filter_with_traceback_matrix(self, inferrer: CompositionInferrer) -> None:
         """
-        Filter out all fragments with no valid composition
+        Filter out fragments with no valid decomposition (for itself or its complement).
 
         Parameters
         ----------
         inferrer : CompositionInferrer
             Composition inferrer, i.e., traceback matrix.
 
+        Notes
+        -----
+        We define the complement of a mass as its difference to the intact mass.
+
         """
+        # Filter out fragments whose mass cannot be validly decomposed
         self.fragments = (
             self.fragments.with_columns(
                 pl.struct("observed_mass", "standard_unit_mass")
@@ -229,6 +234,23 @@ class StandardUnitFragments:
                     lambda x: inferrer.is_valid_mass(
                         mass=x["standard_unit_mass"],
                         obs_masses=[x["observed_mass"]],
+                    ),
+                    return_dtype=bool,
+                )
+                .alias("is_valid")
+            )
+            .filter(pl.col("is_valid"))
+            .drop("is_valid")
+        )
+
+        # Filter out fragments whose complementary mass cannot be validly decomposed
+        self.fragments = (
+            self.fragments.with_columns(
+                pl.struct("observed_mass", "standard_unit_mass")
+                .map_elements(
+                    lambda x: inferrer.is_valid_mass(
+                        mass=inferrer.seq.su_mass - x["standard_unit_mass"],
+                        obs_masses=[x["observed_mass"], inferrer.seq.obs_mass],
                     ),
                     return_dtype=bool,
                 )
