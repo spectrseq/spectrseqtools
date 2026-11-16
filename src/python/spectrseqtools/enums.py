@@ -32,3 +32,24 @@ class SolverType(Enum):
     CBC = "cbc"
     GUROBI = "gurobi"
     HIGHS = "highs"
+
+
+class StartTag(Enum):
+    """Enum of 5'-tags for sequences."""
+
+    OH = "OH"
+    P = "P"
+    THIOAMIDE = "thioamide"
+    BIOMERS_6FAM = "biomers_6fam"
+    IDT_6FAM = "idt_6fam"
+
+
+class EndTag(Enum):
+    """Enum of 3'-tags for sequences."""
+
+    OH = "OH"
+    P = "P"
+    CP = "CP"
+    PCP_BIOTIN = "pcp_biotin"
+    BIOMERS_BIOTIN_TEG = "biomers_biotin_teg"
+    IDT_BIOTIN = "idt_biotin"

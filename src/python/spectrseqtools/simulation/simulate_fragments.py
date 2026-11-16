@@ -2,7 +2,6 @@
 """Simulation of random fragments."""
 
 from ast import literal_eval
-from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
@@ -11,6 +10,7 @@ import yaml
 
 from spectrseqtools.dataclasses import Sequence
 from spectrseqtools.file_settings import load_alphabet
+from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.parsers import FragmentSimulationOptions
 
 PHANTOM_FRAGMENT_MAGNITUDE = 1000
@@ -40,10 +40,10 @@ def simulate_fragments(options: FragmentSimulationOptions) -> None:
 
     # Build dict with extra masses
     extra_mass_dict = build_extra_mass_dict(
-        element_mass_path=options.elements,
         fragmentation_type=config["fragmentation_type"],
-        start_tag=meta["5_prime_tag"],
-        end_tag=meta["3_prime_tag"],
+        fragmentation_masses=FragmentationRelatedMasses.from_file(
+            file_path=options.input
+        ),
     )
 
     # Add sequence mass to meta dict
@@ -140,9 +140,7 @@ def select_singletons(
 # fragment ends (either based on a tag or fragmentation).
 def build_extra_mass_dict(
     fragmentation_type: str,
-    element_mass_path: Path,
-    start_tag: float,
-    end_tag: float,
+    fragmentation_masses: FragmentationRelatedMasses,
 ) -> dict:
     """Build dictionary with fragmentation-related masses.
 
@@ -150,12 +148,8 @@ def build_extra_mass_dict(
     ----------
     fragmentation_type : str
         Fragmentation type.
-    element_mass_path : Path
-        Path to file containing element masses.
-    start_tag : float
-        Mass of 5'-tag.
-    end_tag : float
-        Mass of 3'-tag.
+    fragmentation_masses : FragmentationRelatedMasses
+        Fragmentation-related masses.
 
     Returns
     -------
@@ -163,58 +157,27 @@ def build_extra_mass_dict(
         Dictionary of fragmentation-related masses.
 
     """
-    # Build dict of elemental masses
-    element_masses = pl.read_csv(element_mass_path, separator="\t")
-    element_masses = {
-        row[element_masses.get_column_index("symbol")]: row[
-            element_masses.get_column_index("mass")
-        ]
-        for row in element_masses.iter_rows()
-    }
-
     # Initialize dict with universal masses
     extra_mass_dict = {
-        # Mass needed to turn a nucleoside to a standard unit (SU)
-        "to_standard_unit": (
-            element_masses["P"] + 2 * element_masses["O"] - element_masses["H+"]
-        ),
-        # Remove O from SU and add START tag (-H) for 5'-end of terminal fragments
-        "5_prime_terminal": start_tag - element_masses["O"] - element_masses["H+"],
-        # Remove PO3H from SU and add END tag (-H) for 3'-end of terminal fragments
-        "3_prime_terminal": (
-            end_tag
-            - element_masses["P"]
-            - 3 * element_masses["O"]
-            - 2 * element_masses["H+"]
-        ),
+        "to_standard_unit": fragmentation_masses.phosphate_link,
+        "5_prime_terminal": fragmentation_masses.start,
+        "3_prime_terminal": fragmentation_masses.end,
     }
 
     # Add fragmentation-specific masses for 5'- and 3'-ends of a fragment to dict
     match fragmentation_type:
         case "a/w":  # assuming double bond for 3'-end
-            extra_mass_dict["5_prime_internal"] = (
-                element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
-            )
-            extra_mass_dict["3_prime_internal"] = -(
-                element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
-            )
+            extra_mass_dict["5_prime_internal"] = fragmentation_masses.a_w
+            extra_mass_dict["3_prime_internal"] = -fragmentation_masses.a_w
         case "b/x":
-            extra_mass_dict["5_prime_internal"] = (
-                element_masses["P"] + 2 * element_masses["O"]
-            )
-            extra_mass_dict["3_prime_internal"] = -(
-                element_masses["P"] + 2 * element_masses["O"]
-            )
+            extra_mass_dict["5_prime_internal"] = fragmentation_masses.b_x
+            extra_mass_dict["3_prime_internal"] = -fragmentation_masses.b_x
         case "c/y":  # assuming cyclization for 3'-end
-            extra_mass_dict["5_prime_internal"] = element_masses["H+"]
-            extra_mass_dict["3_prime_internal"] = -element_masses["H+"]
+            extra_mass_dict["5_prime_internal"] = fragmentation_masses.c_y
+            extra_mass_dict["3_prime_internal"] = -fragmentation_masses.c_y
         case "d/z":  # assuming double bond for 5'-end
-            extra_mass_dict["5_prime_internal"] = -(
-                element_masses["O"] + element_masses["H+"]
-            )
-            extra_mass_dict["3_prime_internal"] = (
-                element_masses["O"] + element_masses["H+"]
-            )
+            extra_mass_dict["5_prime_internal"] = fragmentation_masses.d_z
+            extra_mass_dict["3_prime_internal"] = -fragmentation_masses.d_z
         case _:
             raise NotImplementedError(
                 f"There is no fragmentation type called '{fragmentation_type}'."

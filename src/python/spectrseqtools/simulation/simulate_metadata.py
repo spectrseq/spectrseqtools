@@ -7,6 +7,7 @@ from typing import Tuple
 
 import yaml
 
+from spectrseqtools.enums import EndTag, StartTag
 from spectrseqtools.parsers import (
     CustomMetadataSimulationOptions,
     RandomMetadataSimulationOptions,
@@ -32,6 +33,11 @@ def simulate_metadata_for_custom_sequence(
         "5_prime_tag": options.start_tag,
         "3_prime_tag": options.end_tag,
     }
+    if isinstance(meta["5_prime_tag"], StartTag):
+        meta["5_prime_tag"] = meta["5_prime_tag"].value
+    if isinstance(meta["3_prime_tag"], EndTag):
+        meta["3_prime_tag"] = meta["3_prime_tag"].value
+    print(meta)
 
     # Write metadata to file
     file_name = options.output_dir / "sample.meta.yaml"
@@ -71,6 +77,11 @@ def simulate_metadata_for_random_sequences(
             "5_prime_tag": options.start_tag,
             "3_prime_tag": options.end_tag,
         }
+        if isinstance(meta["5_prime_tag"], StartTag):
+            meta["5_prime_tag"] = meta["5_prime_tag"].value
+        if isinstance(meta["3_prime_tag"], EndTag):
+            meta["3_prime_tag"] = meta["3_prime_tag"].value
+        print(meta)
 
         # Write metadata to file
         file_name = options.output_dir / f"sim_{idx + 1}/sample.meta.yaml"

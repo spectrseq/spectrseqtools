@@ -8,9 +8,11 @@ import ddargparse
 
 from spectrseqtools.enums import (
     AveragineBackbone,
+    EndTag,
     ErrorMetric,
     LengthEstimatorMetric,
     SolverType,
+    StartTag,
 )
 
 
@@ -26,12 +28,12 @@ class CustomMetadataSimulationOptions(ddargparse.OptionsBase):
             "help": "Output directory.",
         },
     )
-    start_tag: float = field(
-        default=555.1294,
+    start_tag: StartTag | float = field(
+        default=StartTag.IDT_6FAM,
         metadata={"help": "Mass of 5'-tag of sequence."},
     )
-    end_tag: float = field(
-        default=455.1491,
+    end_tag: EndTag | float = field(
+        default=EndTag.IDT_BIOTIN,
         metadata={"help": "Mass of 3'-tag of sequence."},
     )
 
@@ -48,12 +50,12 @@ class RandomMetadataSimulationOptions(ddargparse.OptionsBase):
             "help": "Output directory.",
         },
     )
-    start_tag: float = field(
-        default=555.1294,
+    start_tag: StartTag | float = field(
+        default=StartTag.IDT_6FAM,
         metadata={"help": "Mass of 5'-tag of sequence."},
     )
-    end_tag: float = field(
-        default=455.1491,
+    end_tag: EndTag | float = field(
+        default=EndTag.IDT_BIOTIN,
         metadata={"help": "Mass of 3'-tag of sequence."},
     )
     sequence_length: int = field(
@@ -78,9 +80,6 @@ class RandomMetadataSimulationOptions(ddargparse.OptionsBase):
 class FragmentSimulationOptions(ddargparse.OptionsBase):
     """Simulation of random fragments."""
 
-    elements: Path = field(
-        metadata={"help": "Path to file with element-mass information in CSV format."},
-    )
     input: Path = field(
         metadata={"help": "Path to YAML with meta information."},
     )

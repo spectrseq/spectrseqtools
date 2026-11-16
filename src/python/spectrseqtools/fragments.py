@@ -633,6 +633,23 @@ class RawFragments:
             SU-fragments.
 
         """
+        intact_dict = {
+            mass: [frag for frag in frags if frag == "START_END"]
+            for (mass, frags) in fragmentation_dict.items()
+        }
+        start_dict = {
+            mass: [frag for frag in frags if "START" in frag and "END" not in frag]
+            for (mass, frags) in fragmentation_dict.items()
+        }
+        end_dict = {
+            mass: [frag for frag in frags if "START" not in frag and "END" in frag]
+            for (mass, frags) in fragmentation_dict.items()
+        }
+        internal_dict = {
+            mass: [frag for frag in frags if "START" not in frag and "END" not in frag]
+            for (mass, frags) in fragmentation_dict.items()
+        }
+
         # Copy each fragment for each unique fragmentation weights and set standard-unit mass
         fragments = pl.concat(
             [
@@ -642,7 +659,9 @@ class RawFragments:
                     .alias("standard_unit_mass"),
                     pl.lit(fragmentation[0]).alias("fragmentation"),
                 )
-                for (weight, fragmentation) in fragmentation_dict.items()
+                for frag_dict in [intact_dict, start_dict, end_dict, internal_dict]
+                for (weight, fragmentation) in frag_dict.items()
+                if len(fragmentation) > 0
             ]
         )
 
