@@ -80,9 +80,6 @@ class RandomMetadataSimulationOptions(ddargparse.OptionsBase):
 class FragmentSimulationOptions(ddargparse.OptionsBase):
     """Simulation of random fragments."""
 
-    elements: Path = field(
-        metadata={"help": "Path to file with element-mass information in CSV format."},
-    )
     input: Path = field(
         metadata={"help": "Path to YAML with meta information."},
     )

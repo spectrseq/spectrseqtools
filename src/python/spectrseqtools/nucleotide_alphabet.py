@@ -9,7 +9,8 @@ from typing import List, Self, Set
 import polars as pl
 
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.file_settings import ELEMENT_MASSES, load_alphabet
+from spectrseqtools.file_settings import load_alphabet
+from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 
 _ALPHABET_COLS = [
     "integer_mass",
@@ -165,23 +166,23 @@ class NucleotideAlphabet:
             raise Exception("Dataframe does not contain exactly one alphabet.")
         group_idx = group_idx[0]
 
-        # Set mass for phosphate link between bases
-        phosphate_link = (
-            ELEMENT_MASSES["P"] + 2 * ELEMENT_MASSES["O"] - ELEMENT_MASSES["H+"]
-        )
+        # Initialize fragmentation-related masses
+        frag_masses = FragmentationRelatedMasses()
 
         # Rename monoisotopic mass to nucleoside mass
         masses = masses.rename({"monoisotopic_mass": "nucleoside_mass"})
 
         # Add phosphate backbone to gain nucleotide masses
         masses = masses.with_columns(
-            pl.col("nucleoside_mass").add(phosphate_link).alias("nucleotide_mass")
+            pl.col("nucleoside_mass")
+            .add(frag_masses.phosphate_link)
+            .alias("nucleotide_mass")
         )
 
         # Add new columns for singleton m/z values (subtract one proton
         # from nucleotide) and integer masses for the DP algorithm
         masses = masses.with_columns(
-            pl.col("nucleotide_mass").add(-ELEMENT_MASSES["H+"]).alias("singleton_mz"),
+            pl.col("nucleotide_mass").add(-frag_masses.c_y).alias("singleton_mz"),
             (pl.col("nucleotide_mass") / error.precision)
             .round(0)
             .cast(pl.Int64)

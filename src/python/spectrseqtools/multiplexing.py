@@ -14,11 +14,8 @@ from scipy.signal import find_peaks
 
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
+from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.parsers import PreprocessingOptions
-from spectrseqtools.prediction.fragment_classification import (
-    select_end_tag,
-    select_start_tag,
-)
 from spectrseqtools.preprocessing.deconvolution import (
     DEFAULT_CHARGE_VALUE,
     MS1Deconvoluter,
@@ -450,7 +447,7 @@ def generate_singletons_and_fragments(
     error,
     ms2_deconvoluter,
     default_singletons,
-    meta,
+    fragmentation_masses,
 ):
     df_filter = df_window_info.filter(pl.col("ms1_mass_group") == grp_number)
 
@@ -461,9 +458,7 @@ def generate_singletons_and_fragments(
     max_window_time = df_filter["max_window_time"].max()
     intact_mass = df_filter["ms1_mass"].min()
 
-    if intact_mass < select_start_tag(tag=meta["5_prime_tag"]) + select_end_tag(
-        tag=meta["3_prime_tag"]
-    ):
+    if intact_mass < fragmentation_masses.tag_mass:
         return None, None
 
     ms2_index_in_grp = set()
@@ -596,7 +591,7 @@ def preprocess_multiplexing(
             error,
             ms2_deconvoluter,
             default_singletons,
-            meta,
+            FragmentationRelatedMasses.from_file(file_path=options.meta),
         )
         if fragments is None or singletons is None:
             continue

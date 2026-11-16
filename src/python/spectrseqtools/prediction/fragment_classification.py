@@ -4,11 +4,8 @@
 from itertools import product
 from pathlib import Path
 
-import yaml
-
-from spectrseqtools.enums import EndTag, StartTag
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.file_settings import ELEMENT_MASSES
+from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.fragments import RawFragments, StandardUnitFragments
 
 # METHOD: Precompute all weight changes caused by fragmentation and adapt the
@@ -44,53 +41,22 @@ class FragmentClassifier:
         """
         self.error = error
 
-        element_masses = ELEMENT_MASSES
+        # Initialize fragmentation-related masses
+        frag_masses = FragmentationRelatedMasses.from_file(file_path=file_path)
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            meta = yaml.safe_load(f)
-
-        # Read tags from meta file
-        start_tag = select_start_tag(tag=meta.setdefault("5_prime_tag", 555.1294))
-        end_tag = select_end_tag(tag=meta.setdefault("3_prime_tag", 455.1491))
-
-        # Initialize dict with masses for 5'-end of fragments
-        start_dict = {
-            # Remove O from SU and add START tag (without H)
-            "START": start_tag - element_masses["O"] - element_masses["H+"],
-            # Add H to SU to achieve neutral charge
-            "c/y": element_masses["H+"],
-        }
-
-        # Initialize dict with masses for 3'-end of fragments
-        end_dict = {
-            # Remove PO3H from SU and add END tag (without H)
-            "END": end_tag
-            - element_masses["P"]
-            - 3 * element_masses["O"]
-            - 2 * element_masses["H+"],
-            # Remove H from SU to achieve neutral charge
-            "c/y": -element_masses["H+"],
-        }
+        # Initialize dicts with masses for 5'- and 3'-end of fragments
+        start_dict = {"START": frag_masses.start, "c/y": frag_masses.c_y}
+        end_dict = {"END": frag_masses.end, "c/y": -frag_masses.c_y}
 
         # Add a/w-, b/x-, and d/z-fragmentation for full dict version
         if not reduced:
-            # Add PO3H2 to SU to achieve neutral charge
-            start_dict["a/w"] = (
-                element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
-            )
-            # Add P2O to SU to achieve neutral charge
-            start_dict["b/x"] = element_masses["P"] + 2 * element_masses["O"]
-            # Remove OH from SU to achieve neutral charge
-            start_dict["d/z"] = -(element_masses["O"] + element_masses["H+"])
+            start_dict["a/w"] = frag_masses.a_w
+            start_dict["b/x"] = frag_masses.b_x
+            start_dict["d/z"] = frag_masses.d_z
 
-            # Remove PO3H2 from SU to achieve neutral charge
-            end_dict["a/w"] = -(
-                element_masses["P"] + 3 * element_masses["O"] + 2 * element_masses["H+"]
-            )
-            # Remove P2O from SU to achieve neutral charge
-            end_dict["b/x"] = -(element_masses["P"] + 2 * element_masses["O"])
-            # Add OH to SU to achieve neutral charge
-            end_dict["d/z"] = element_masses["O"] + element_masses["H+"]
+            end_dict["a/w"] = -frag_masses.a_w
+            end_dict["b/x"] = -frag_masses.b_x
+            end_dict["d/z"] = -frag_masses.d_z
 
         # Collect all unique fragmentation-related mass combinations in dict
         fragmentation_dict = {}
@@ -129,53 +95,3 @@ class FragmentClassifier:
         return fragments.standardize(
             fragmentation_dict=self.fragmentation_options, error=self.error
         )
-
-
-def select_start_tag(tag: StartTag | float) -> float:
-    """Select mass for 5'-tag."""
-    # Return float value directly
-    if isinstance(tag, float):
-        return tag
-
-    # Convert string into Enum object
-    if isinstance(tag, str):
-        tag = StartTag(tag)
-
-    # Select mass matching tag
-    match tag:
-        case StartTag.OH:
-            return 18.009482
-        case StartTag.P:
-            return 97.975308
-        case StartTag.NILS:
-            return 170.98
-        case StartTag.COMMERCIAL:
-            return 555.1294
-        case _:
-            raise NotImplementedError(f"Support for '{tag}' is currently not given.")
-
-
-def select_end_tag(tag: EndTag | float) -> float:
-    """Select mass for 3'-tag."""
-    # Return float value directly
-    if isinstance(tag, float):
-        return tag
-
-    # Convert string into Enum object
-    if isinstance(tag, str):
-        tag = EndTag(tag)
-
-    # Select mass matching tag
-    match tag:
-        case EndTag.OH:
-            return 18.009482
-        case EndTag.CP:
-            return 79.965826
-        case EndTag.P:
-            return 97.975308
-        case EndTag.NILS:
-            return 728.2
-        case EndTag.COMMERCIAL:
-            return 455.1491
-        case _:
-            raise NotImplementedError(f"Support for '{tag}' is currently not given.")

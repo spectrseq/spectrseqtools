@@ -13,11 +13,8 @@ from clr_loader import get_mono
 from spectrseqtools.enums import AveragineBackbone
 from spectrseqtools.error_calculator import ErrorCalculator
 from spectrseqtools.file_settings import PreprocessingFileSettings
+from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.parsers import PreprocessingOptions
-from spectrseqtools.prediction.fragment_classification import (
-    select_end_tag,
-    select_start_tag,
-)
 from spectrseqtools.preprocessing.deconvolution import (
     DeisotopedPeakList,
     MS1Deconvoluter,
@@ -52,9 +49,6 @@ class Preprocessor:
         )
         self.min_precursor_charge = options.min_precursor_charge
         self.intact_mass_cutoff_factor = options.intact_mass_cutoff_factor
-
-        with open(self.file_settings.meta_path, "r", encoding="utf-8") as f:
-            self.meta_params = yaml.safe_load(f)
 
         averagine = ms_ditp.Averagine(
             base_composition=set_averagine(backbone=options.averagine_backbone)
@@ -101,8 +95,11 @@ class Preprocessor:
         # Deconvolute raw data from file
         ms1_fragments, ms2_fragments = self.deconvolute()
 
+        # Read meta data
+        with open(self.file_settings.meta_path, "r", encoding="utf-8") as f:
+            meta_params = yaml.safe_load(f)
+
         # Update meta parameters (if needed)
-        meta_params = self.meta_params
         meta_params.setdefault("identity", self.file_settings.file_prefix)
         meta_params.setdefault("intact_mass", self.select_intact_mass(ms1_fragments))
         meta_params.setdefault("true_sequence", None)
@@ -343,8 +340,9 @@ class Preprocessor:
             fragments.filter(
                 (pl.col("is_precursor_deisotoped"))
                 & (
-                    select_start_tag(tag=self.meta_params["5_prime_tag"])
-                    + select_end_tag(tag=self.meta_params["3_prime_tag"])
+                    FragmentationRelatedMasses.from_file(
+                        file_path=self.file_settings.meta_path
+                    ).tag_mass
                     <= pl.col("neutral_mass")
                 )
                 & (

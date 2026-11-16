@@ -18,16 +18,6 @@ MATRIX_CACHE_DIR = Path(
 
 # Set default file paths
 DEFAULT_ALPHABET_PATH = importlib.resources.files(__package__) / "assets" / "masses.tsv"
-DEFAULT_ELEMENT_PATH = (
-    importlib.resources.files(__package__) / "assets" / "element_masses.tsv"
-)
-
-# Build dict with elemental masses
-elements = pl.read_csv(DEFAULT_ELEMENT_PATH, separator="\t")
-ELEMENT_MASSES = {
-    row[elements.get_column_index("symbol")]: row[elements.get_column_index("mass")]
-    for row in elements.iter_rows()
-}
 
 _ALPHABET_DF_COLS = [
     "id",
