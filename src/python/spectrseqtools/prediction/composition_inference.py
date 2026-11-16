@@ -209,8 +209,8 @@ class MatrixBasedInferrer(CompositionInferrer):
         target, threshold = self.error.set_target(su_mass=mass, obs_masses=obs_masses)
 
         for value in range(target - threshold, target + threshold + 1):
-            # Skip non-positive masses
-            if value <= 0:
+            # Skip negative masses
+            if value < 0:
                 continue
 
             vertical_move, horizontal_move = self.matrix.allowed_movement(
