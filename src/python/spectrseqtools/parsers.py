@@ -29,11 +29,11 @@ class CustomMetadataSimulationOptions(ddargparse.OptionsBase):
         },
     )
     start_tag: StartTag | float = field(
-        default=StartTag.COMMERCIAL,
+        default=StartTag.IDT_6FAM,
         metadata={"help": "Mass of 5'-tag of sequence."},
     )
     end_tag: EndTag | float = field(
-        default=EndTag.COMMERCIAL,
+        default=EndTag.IDT_BIOTIN,
         metadata={"help": "Mass of 3'-tag of sequence."},
     )
 
@@ -51,11 +51,11 @@ class RandomMetadataSimulationOptions(ddargparse.OptionsBase):
         },
     )
     start_tag: StartTag | float = field(
-        default=StartTag.COMMERCIAL,
+        default=StartTag.IDT_6FAM,
         metadata={"help": "Mass of 5'-tag of sequence."},
     )
     end_tag: EndTag | float = field(
-        default=EndTag.COMMERCIAL,
+        default=EndTag.IDT_BIOTIN,
         metadata={"help": "Mass of 3'-tag of sequence."},
     )
     sequence_length: int = field(

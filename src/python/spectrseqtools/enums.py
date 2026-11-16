@@ -35,19 +35,21 @@ class SolverType(Enum):
 
 
 class StartTag(Enum):
-    """Enum of end tags for sequences."""
+    """Enum of 5'-tags for sequences."""
 
     OH = "OH"
     P = "P"
-    NILS = "nils"
-    COMMERCIAL = "commercial"
+    THIOAMIDE = "thioamide"
+    BIOMERS_6FAM = "biomers_6fam"
+    IDT_6FAM = "idt_6fam"
 
 
 class EndTag(Enum):
-    """Enum of end tags for sequences."""
+    """Enum of 3'-tags for sequences."""
 
     OH = "OH"
     P = "P"
     CP = "CP"
-    NILS = "nils"
-    COMMERCIAL = "commercial"
+    PCP_BIOTIN = "pcp_biotin"
+    BIOMERS_BIOTIN_TEG = "biomers_biotin_teg"
+    IDT_BIOTIN = "idt_biotin"

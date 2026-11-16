@@ -27,8 +27,8 @@ ELEMENT_MASSES = {
 class FragmentationRelatedMasses:
     """Class for fragmentation masses relative to standard units."""
 
-    start: float = "commercial"
-    end: float = "commercial"
+    start: float = "idt_6fam"
+    end: float = "idt_biotin"
 
     def __post_init__(self):
         # Remove O from SU and add START tag (-H) for 5'-end of terminal fragments
@@ -52,8 +52,8 @@ class FragmentationRelatedMasses:
             meta = yaml.safe_load(f)
 
         return cls(
-            start=select_start_tag(meta.setdefault("5_prime_tag", StartTag.COMMERCIAL)),
-            end=select_end_tag(meta.setdefault("3_prime_tag", EndTag.COMMERCIAL)),
+            start=select_start_tag(meta.setdefault("5_prime_tag", StartTag.IDT_6FAM)),
+            end=select_end_tag(meta.setdefault("3_prime_tag", EndTag.IDT_BIOTIN)),
         )
 
     @property
@@ -96,7 +96,7 @@ class FragmentationRelatedMasses:
     @property
     def tag_mass(self) -> float:
         """Return mass of empty sequence only consisting of tags."""
-        return round(self.start + self.end + self.a_w - self.d_z, 12)
+        return round(self.start + self.end + self.a_w - self.d_z, 10)
 
 
 def select_start_tag(tag: StartTag | float) -> float:
@@ -115,9 +115,11 @@ def select_start_tag(tag: StartTag | float) -> float:
             return 18.009482
         case StartTag.P:
             return 97.975308
-        case StartTag.NILS:
+        case StartTag.THIOAMIDE:
             return 170.98
-        case StartTag.COMMERCIAL:
+        case StartTag.IDT_6FAM:
+            return 555.1294
+        case StartTag.BIOMERS_6FAM:
             return 555.1294
         case _:
             raise NotImplementedError(f"Support for '{tag}' is currently not given.")
@@ -141,9 +143,11 @@ def select_end_tag(tag: EndTag | float) -> float:
             return 79.965826
         case EndTag.P:
             return 97.975308
-        case EndTag.NILS:
+        case EndTag.PCP_BIOTIN:
             return 728.2
-        case EndTag.COMMERCIAL:
+        case EndTag.IDT_BIOTIN:
             return 455.1491
+        case EndTag.BIOMERS_BIOTIN_TEG:
+            return 587.2278
         case _:
             raise NotImplementedError(f"Support for '{tag}' is currently not given.")
