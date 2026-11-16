@@ -229,7 +229,8 @@ class SequencePredictor:
             seq_weight = inferrer.alphabet.get_seq_weight(seq)
             print("True mass:\t\t", seq_weight)
             print("Measured mass (SU):\t", inferrer.seq.su_mass)
-            print("Within range (10ppm):\t",
+            print(
+                "Within range (10ppm):\t",
                 inferrer.is_valid_mass(
                     mass=abs(seq_weight - inferrer.seq.su_mass),
                     obs_masses=[inferrer.seq.obs_mass],
