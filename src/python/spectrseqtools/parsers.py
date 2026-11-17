@@ -330,6 +330,10 @@ class PredictionOptions(ddargparse.OptionsBase):
             "help": "Number of binary-compressed masses per cell in traceback matrix."
         },
     )
+    max_sequence_length: int = field(
+        default=35,
+        metadata={"help": "Initial guess for maximum sequence length to build matrix."},
+    )
     modification_rate: float = field(
         default=0.5,
         metadata={

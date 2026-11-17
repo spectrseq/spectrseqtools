@@ -12,7 +12,7 @@ from spectrseqtools.file_settings import set_matrix_path
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 
 # Set maximum sequence length to be represented in traceback matrix
-MAX_SEQ_LENGTH = 35
+DEFAULT_MAX_SEQ_LEN = 35
 
 
 # METHOD: Use dynamic programming to build a traceback matrix that implicitly
@@ -25,14 +25,17 @@ class TracebackMatrix:
     """Class for traceback matrix implicitly containing all compositions."""
 
     matrix: np.ndarray
-    max_seq_length = MAX_SEQ_LENGTH
+    max_seq_len: int
 
     def __len__(self):
         return len(self.matrix)
 
     @classmethod
     def load_with_compression(
-        cls, alphabet: NucleotideAlphabet, compression_rate: int
+        cls,
+        alphabet: NucleotideAlphabet,
+        compression_rate: int,
+        max_seq_len: int = DEFAULT_MAX_SEQ_LEN,
     ) -> Self:
         """
         Load traceback matrix from file if it exists and compute it otherwise.
@@ -43,11 +46,15 @@ class TracebackMatrix:
             Alphabet of considered nucleotides.
         compression_rate : int
             Compression per matrix cell.
+        max_seq_len : int
+            Maximum sequence length used to estimate needed matrix size.
 
         """
         # Set matrix cache path
         path = set_matrix_path(
-            num_places=alphabet.decimal_places, compression_rate=compression_rate
+            num_places=alphabet.decimal_places,
+            compression_rate=compression_rate,
+            max_seq_len=max_seq_len,
         )
         match compression_rate:
             case 1:
@@ -79,10 +86,19 @@ class TracebackMatrix:
             Path to cached matrix file.
 
         """
+        # Determine initial maximum sequence length from Path
+        max_seq_len = int(
+            [
+                substring
+                for substring in path.name.split(".")
+                if substring.endswith("nt")
+            ][0].rstrip("nt")
+        )
+
         # For non-default alphabet, build matrix directly
         if not alphabet.is_default:
             print("Custom alphabet detected. Setting up new traceback matrix.\n")
-            matrix = cls(matrix=None)
+            matrix = cls(matrix=None, max_seq_len=max_seq_len)
             matrix.rebuild(alphabet=alphabet)
             return matrix
 
@@ -90,14 +106,14 @@ class TracebackMatrix:
         print("Default alphabet detected. Trying to load traceback matrix.\n")
         if not Path(f"{path}.npy").is_file():
             print("Matrix not found. Building matrix...")
-            matrix = cls(matrix=None)
+            matrix = cls(matrix=None, max_seq_len=max_seq_len)
             matrix.rebuild(alphabet=alphabet)
             print("Building complete. Save default matrix.")
             matrix.save(file_path=path)
             return matrix
 
         # Read traceback matrix
-        return cls(matrix=np.load(f"{path}.npy"))
+        return cls(matrix=np.load(f"{path}.npy"), max_seq_len=max_seq_len)
 
     def rebuild(self, alphabet: NucleotideAlphabet) -> None:
         """
@@ -115,12 +131,12 @@ class TracebackMatrix:
 
         """
         # Select maximum integer mass for which matrix should be built
-        if self.max_seq_length > 50:
+        if self.max_seq_len > 50:
             raise NotImplementedError(
                 "This sequence length cannot produce accurate "
                 "MS/MS data anymore. Please reconsider."
             )
-        max_mass = alphabet.max.integer_mass * self.max_seq_length
+        max_mass = alphabet.max.integer_mass * self.max_seq_len
 
         # Initialize matrix as numpy table (+ additional first row for easier indexing)
         matrix = np.zeros((len(alphabet) + 1, max_mass + 1), dtype=np.uint8)
@@ -220,7 +236,7 @@ class CompressedTracebackMatrix(TracebackMatrix, ABC):
         settings = self.build_settings
 
         # Select maximum integer mass for which matrix should be built
-        max_mass = alphabet.max.integer_mass * self.max_seq_length
+        max_mass = alphabet.max.integer_mass * self.max_seq_len
 
         # Initialize bit-representation matrix as numpy table (+ additional first row
         # for easier indexing)
