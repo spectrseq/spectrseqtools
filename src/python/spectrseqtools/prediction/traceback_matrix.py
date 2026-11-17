@@ -110,6 +110,11 @@ class TracebackMatrix:
 
         """
         # Select maximum integer mass for which matrix should be built
+        if self.max_seq_length > 50:
+            raise NotImplementedError(
+                "This sequence length cannot produce accurate "
+                "MS/MS data anymore. Please reconsider."
+            )
         max_mass = alphabet.max.integer_mass * self.max_seq_length
 
         # Initialize matrix as numpy table (+ additional first row for easier indexing)
