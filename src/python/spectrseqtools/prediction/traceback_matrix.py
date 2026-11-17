@@ -157,12 +157,17 @@ class TracebackMatrix:
         horizontal_move : bool
             Flag whether a horizontal move is possible.
 
+        Raises
+        ------
+        NotImplementedError
+            Mass is too large to be represented in matrix (i.e. size is insufficient).
+
         """
         # Raise error if mass is not in matrix (due to its size)
         if mass >= len(self.matrix[0]):
             raise NotImplementedError(
                 f"The value {mass} is not in the traceback matrix. "
-                f"Extend its size if you want to compute larger masses."
+                f"Increase its size if you want to compute larger masses."
             )
 
         # Allow no movement for cells outside of matrix
