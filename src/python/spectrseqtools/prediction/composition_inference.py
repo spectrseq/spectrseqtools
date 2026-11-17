@@ -231,8 +231,8 @@ class MatrixBasedInferrer(CompositionInferrer):
                     mass=mass, nuc_idx=nuc_idx
                 )
             except NotImplementedError:
-                self.matrix.max_seq_length += 5
-                print("Increasing max. sequence length to:", self.matrix.max_seq_length)
+                self.matrix.max_seq_len += 5
+                print("Increasing max. sequence length to:", self.matrix.max_seq_len)
                 self.matrix.rebuild(alphabet=self.alphabet)
 
         return vertical_move, horizontal_move
