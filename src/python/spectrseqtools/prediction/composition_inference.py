@@ -201,6 +201,42 @@ class MatrixBasedInferrer(CompositionInferrer):
 
         return mapping
 
+    def allowed_movement(self, mass: int, nuc_idx: int):
+        """
+        Return flags indicating allowed movements for the given mass and nucleotide.
+
+        If matrix size is insufficient, increase it in increments of 5 nt.
+
+        Parameters
+        ----------
+        mass : int
+            Given integer mass value (i.e. column index).
+        nuc_idx : int
+            Given nucleotide index (i.e. row index).
+
+        Returns
+        -------
+        vertical_move : bool
+            Flag whether a vertical move is possible.
+        horizontal_move : bool
+            Flag whether a horizontal move is possible.
+
+        """
+        vertical_move = None
+        horizontal_move = None
+
+        while vertical_move is None or horizontal_move is None:
+            try:
+                vertical_move, horizontal_move = self.matrix.allowed_movement(
+                    mass=mass, nuc_idx=nuc_idx
+                )
+            except NotImplementedError:
+                self.matrix.max_seq_length += 5
+                print("Increasing max. sequence length to:", self.matrix.max_seq_length)
+                self.matrix.rebuild(alphabet=self.alphabet)
+
+        return vertical_move, horizontal_move
+
     def is_valid_mass(
         self,
         mass: float,
@@ -213,7 +249,7 @@ class MatrixBasedInferrer(CompositionInferrer):
             if value < 0:
                 continue
 
-            vertical_move, horizontal_move = self.matrix.allowed_movement(
+            vertical_move, horizontal_move = self.allowed_movement(
                 mass=value, nuc_idx=len(self.matrix) - 1
             )
 
@@ -263,7 +299,7 @@ class MatrixBasedInferrer(CompositionInferrer):
             if target_mass == 0:
                 return [[]]
 
-            vertical_move, horizontal_move = self.matrix.allowed_movement(
+            vertical_move, horizontal_move = self.allowed_movement(
                 mass=target_mass, nuc_idx=current_idx
             )
 
@@ -348,7 +384,7 @@ class MatrixBasedInferrer(CompositionInferrer):
                 return 0
 
             # Determine possible movements
-            vertical_move, horizontal_move = self.matrix.allowed_movement(
+            vertical_move, horizontal_move = self.allowed_movement(
                 mass=total_mass, nuc_idx=current_idx
             )
 

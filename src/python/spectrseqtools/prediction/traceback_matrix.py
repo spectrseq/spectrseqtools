@@ -25,6 +25,7 @@ class TracebackMatrix:
     """Class for traceback matrix implicitly containing all compositions."""
 
     matrix: np.ndarray
+    max_seq_length = MAX_SEQ_LENGTH
 
     def __len__(self):
         return len(self.matrix)
@@ -109,7 +110,7 @@ class TracebackMatrix:
 
         """
         # Select maximum integer mass for which matrix should be built
-        max_mass = alphabet.max.integer_mass * MAX_SEQ_LENGTH
+        max_mass = alphabet.max.integer_mass * self.max_seq_length
 
         # Initialize matrix as numpy table (+ additional first row for easier indexing)
         matrix = np.zeros((len(alphabet) + 1, max_mass + 1), dtype=np.uint8)
@@ -204,7 +205,7 @@ class CompressedTracebackMatrix(TracebackMatrix, ABC):
         settings = self.build_settings
 
         # Select maximum integer mass for which matrix should be built
-        max_mass = alphabet.max.integer_mass * MAX_SEQ_LENGTH
+        max_mass = alphabet.max.integer_mass * self.max_seq_length
 
         # Initialize bit-representation matrix as numpy table (+ additional first row
         # for easier indexing)
