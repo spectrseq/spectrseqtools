@@ -104,6 +104,11 @@ class Preprocessor:
         meta_params.setdefault("intact_mass", self.select_intact_mass(ms1_fragments))
         meta_params.setdefault("true_sequence", None)
 
+        print()
+        print("Calculated intact mass:\t", self.select_intact_mass(ms1_fragments))
+        print("Reported intact mass:\t", meta_params["intact_mass"])
+        print()
+
         # Save updated meta data
         with open(self.file_settings.updated_meta_path, "w", encoding="utf-8") as f:
             yaml.dump(meta_params, f)
