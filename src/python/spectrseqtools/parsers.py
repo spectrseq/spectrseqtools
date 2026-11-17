@@ -331,7 +331,7 @@ class PredictionOptions(ddargparse.OptionsBase):
         },
     )
     max_sequence_length: int = field(
-        default=35,
+        default=20,
         metadata={"help": "Initial guess for maximum sequence length to build matrix."},
     )
     modification_rate: float = field(

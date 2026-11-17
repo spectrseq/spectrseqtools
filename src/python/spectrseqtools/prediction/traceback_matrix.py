@@ -12,7 +12,7 @@ from spectrseqtools.file_settings import set_matrix_path
 from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 
 # Set maximum sequence length to be represented in traceback matrix
-DEFAULT_MAX_SEQ_LEN = 35
+DEFAULT_MAX_SEQ_LEN = 20
 
 
 # METHOD: Use dynamic programming to build a traceback matrix that implicitly
