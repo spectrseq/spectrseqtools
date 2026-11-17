@@ -108,6 +108,11 @@ class TracebackMatrix:
         alphabet : NucleotideAlphabet
             Alphabet of considered nucleotides.
 
+        Raises
+        ------
+        NotImplementedError
+            Size of matrix is over 50 nt.
+
         """
         # Select maximum integer mass for which matrix should be built
         if self.max_seq_length > 50:
