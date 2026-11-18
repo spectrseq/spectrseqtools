@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/spectrseq/spectrseqtools/compare/v0.4.0...v0.5.0) (2026-11-18)
+
+
+### Features
+
+* allow analysis of unlabeled sequences ([#78](https://github.com/spectrseq/spectrseqtools/issues/78)) ([49e461e](https://github.com/spectrseq/spectrseqtools/commit/49e461ecfc8311b91307888737e3d2bc6342e86a))
+* allow longer sequences with automatic matrix expansion ([#81](https://github.com/spectrseq/spectrseqtools/issues/81)) ([86712f7](https://github.com/spectrseq/spectrseqtools/commit/86712f724591219fecc22a616db83010925f1912))
+
+
+### Performance Improvements
+
+* extend validity filter to consider complementary fragment ([#80](https://github.com/spectrseq/spectrseqtools/issues/80)) ([55d1e27](https://github.com/spectrseq/spectrseqtools/commit/55d1e27750fe6596c016f740844885bcbb42d4f5))
+
 ## [0.4.0](https://github.com/spectrseq/spectrseqtools/compare/v0.3.0...v0.4.0) (2026-11-09)
 
 
