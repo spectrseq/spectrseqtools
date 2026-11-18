@@ -61,7 +61,7 @@ def load_alphabet(input_path: Path | None = None) -> pl.DataFrame:
     return alphabet
 
 
-def set_matrix_path(num_places: int, compression_rate: int) -> Path:
+def set_matrix_path(num_places: int, compression_rate: int, max_seq_len: int) -> Path:
     """
     Set path to traceback matrix.
 
@@ -71,6 +71,8 @@ def set_matrix_path(num_places: int, compression_rate: int) -> Path:
         Number of decimal places used for rounding of (nucleotide) masses.
     compression_rate : int
         Compression per matrix cell.
+    max_seq_len : int
+        Maximum sequence length used to estimate needed matrix size.
 
     Returns
     -------
@@ -79,7 +81,10 @@ def set_matrix_path(num_places: int, compression_rate: int) -> Path:
 
     """
     # Set path for traceback matrix
-    path = MATRIX_CACHE_DIR / f"{num_places}_decimal_places.{compression_rate}_per_cell"
+    path = (
+        MATRIX_CACHE_DIR
+        / f"{num_places}_decimal_places.{compression_rate}_per_cell.{max_seq_len}nt"
+    )
 
     # Create directory for traceback matrix if it does not already exist
     if not os.path.exists(path.parent):
