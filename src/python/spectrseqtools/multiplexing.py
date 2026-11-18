@@ -544,7 +544,10 @@ def generate_singletons_and_fragments(
         if singletons is None:
             singletons = default_singletons
 
-    singletons = singletons.with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
+    singletons = (singletons
+        .drop("mz", strict=False)
+        .with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
+    )
 
     return fragments, singletons
 
