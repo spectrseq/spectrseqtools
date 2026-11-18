@@ -63,6 +63,7 @@ COL_TYPES_MS1_CLUSTER = {
 def priority_list_charge_filter(priority_list, ms2_scans, min_precursor_charge):
     new_priority_list = []
     new_ms2_scans = []
+    ms2_by_id = {scan.id: scan for scan in ms2_scans}
 
     for p in range(len(priority_list)):
         priority_peak = priority_list[p]
@@ -72,7 +73,7 @@ def priority_list_charge_filter(priority_list, ms2_scans, min_precursor_charge):
             and priority_peak.charge >= min_precursor_charge
         ):
             new_priority_list.append(priority_list[p])
-            new_ms2_scans.append(ms2_scans[p])
+            new_ms2_scans.append(ms2_by_id[priority_peak.product_scan_id])
 
     return new_priority_list, new_ms2_scans
 
