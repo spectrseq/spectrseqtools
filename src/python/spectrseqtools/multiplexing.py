@@ -466,7 +466,7 @@ def generate_singletons_and_fragments(
     for ms2_idx_list in df_filter["ms2_scan_idx"].sort().unique().to_list():
         [ms2_index_in_grp.add(idx) for idx in ms2_idx_list]
 
-    ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in list(ms2_index_in_grp)]
+    ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in sorted(ms2_index_in_grp)]
 
     precursor_charges = [
         abs(int(scan.precursor_information.charge))
