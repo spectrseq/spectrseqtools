@@ -457,7 +457,7 @@ def generate_singletons_and_fragments(
     )
     min_window_time = df_filter["min_window_time"].min()
     max_window_time = df_filter["max_window_time"].max()
-    intact_mass = df_filter["ms1_mass"].min()
+    intact_mass = df_filter["adduct_normalized_ms1_mass"].min()
 
     if intact_mass < fragmentation_masses.tag_mass:
         return None, None
