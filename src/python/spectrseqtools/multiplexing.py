@@ -565,6 +565,9 @@ def preprocess_multiplexing(
     file_path = options.input
     raw_file_read = initialize_raw_file_iterator(str(file_path))
 
+    if options.output_dir is None:
+        options.output_dir = Path(options.input).resolve().parent
+
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
         if "true_sequence" not in meta:
