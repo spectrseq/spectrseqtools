@@ -121,12 +121,12 @@ def initialize_parsers(options):
     ms1_deconvoluter = MS1Deconvoluter(
         minimum_intensity=options.min_intensity,
         averagine=averagine,
-        max_missed_peaks=1,  # options.max_missed_peaks,
+        max_missed_peaks=options.max_missed_peaks,
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
         scorer=ms_ditp.PenalizedMSDeconVFitter(
-            # minimum_score=options.envelope_min_score,
-            # mass_error_tolerance=options.envelope_error_tol,
+            minimum_score=options.envelope_min_score,
+            mass_error_tolerance=options.envelope_error_tol,
         ),
         charge_range=options.ms1_charge_range,
         truncate_after=options.ms1_truncate_after,
@@ -139,7 +139,7 @@ def initialize_parsers(options):
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
         scorer=ms_ditp.MSDeconVFitter(
-            minimum_score=0,  # options.envelope_min_score,
+            minimum_score=options.envelope_min_score,
             mass_error_tolerance=options.envelope_error_tol,
         ),
         charge_range=options.ms2_charge_range,
@@ -432,7 +432,7 @@ def generate_global_singletons(options, error):
 
     preprocessor.singleton_boundaries = SingletonBoundaries.from_alphabet_file(
         input_path=options.alphabet,
-        boundary_factor=0.5,
+        boundary_factor=options.boundary_factor,
         error=preprocessor.error,
     )
 
@@ -530,7 +530,7 @@ def generate_singletons_and_fragments(
         average_ms2_scan,
         SingletonBoundaries.from_alphabet_file(
             input_path=options.alphabet,
-            boundary_factor=0.5,
+            boundary_factor=options.boundary_factor,
             error=error,
         ),
     )
