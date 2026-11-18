@@ -192,6 +192,12 @@ def generate_ms1_windows(
     ms1_to_ms2_idx = ms1_to_ms2_dict(raw_file_read)
     peak_times = identify_tic_peaks(raw_file_read, start_time, end_time)
 
+    if len(peak_times) == 0:
+        raise ValueError(
+            "No TIC local maxima were found within the requested "
+            f"retention-time bounds: start={start_time}, end={end_time}."
+        )
+
     raw_file_read.reset()
     raw_file_read.make_iterator(grouped=True)
 
@@ -253,16 +259,43 @@ def generate_ms1_windows(
             options.min_precursor_charge,
         )
 
+        if len(priority_list) != len(ms2_scans):
+            raise ValueError("Priority targets and MS2 scans are not aligned.")
+
+        ms2_idx_by_priority_peak_idx = {}
+
+        for priority_peak_idx, (target, scan) in enumerate(zip(priority_list, ms2_scans)):
+            if target.product_scan_id != scan.id:
+                raise ValueError(
+                    f"Priority {priority_peak_idx} references {target.product_scan_id!r}, "
+                    f"but its paired scan is {scan.id!r}."
+                )
+
+            ms2_idx_by_priority_peak_idx[priority_peak_idx] = scan.index
+
         # Deconvolute MS1 scan to get list of deisotoped peaks
         ms1_peaks = ms1_deconvoluter.deconvolute_scan(
             scan=average_ms1_scan,
             priority_list=priority_list,
         ).peaks
 
-        if len(ms1_peaks) != len(ms2_scans):
-            raise Exception("Number of MS1 priority peaks and MS2 scans are not equal!")
-        for ms1_peak, ms2_scan in zip(ms1_peaks, ms2_scans):
-            ms1_peak_to_ms2_idx[ms1_index_string + "_" + str(ms1_peak.peak_idx)].add(
+        seen_priority_indices = set()
+
+        for ms1_peak in ms1_peaks:
+            priority_peak_idx = ms1_peak.peak_idx
+
+            if priority_peak_idx not in ms2_idx_by_priority_peak_idx:
+                raise ValueError(f"Unknown MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}")
+
+            if priority_peak_idx in seen_priority_indices:
+                raise ValueError(f"Duplicate MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}")
+
+            seen_priority_indices.add(priority_peak_idx)
+
+            ms2_idx = ms2_idx_by_priority_peak_idx[priority_peak_idx]
+            ms2_scan = ms2_idx_to_scan[ms2_idx]
+
+            ms1_peak_to_ms2_idx[ms1_index_string + "_" + str(priority_peak_idx)].add(
                 ms2_scan.index
             )
 
@@ -272,11 +305,19 @@ def generate_ms1_windows(
                     "max_window_time": max_window_time,
                     "ms1_mass": ms1_peak.neutral_mass,
                     "ms1_index": ms1_index_string,
-                    "ms1_peak_index": str(ms1_peak.peak_idx),
+                    "ms1_peak_index": str(priority_peak_idx),
                     "ms1_time_group": tic_grp,
                     "ms1_peak_id": ms1_index_string + "_" + str(ms1_peak.peak_idx),
                 }
             )
+
+    if not window_mass_info:
+        raise ValueError(
+            f"No usable MS1 precursor assignments were produced from "
+            f"{len(peak_times)} selected TIC windows. "
+            "Check MS2 availability, precursor-charge filtering, "
+            "and deconvolution settings."
+        )
 
     df_window_info = pl.DataFrame(window_mass_info)
 
