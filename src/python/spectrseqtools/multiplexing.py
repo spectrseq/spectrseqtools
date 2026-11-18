@@ -170,8 +170,12 @@ def identify_tic_peaks(raw_file_read, start_time, end_time):
     max_idx, _ = find_peaks(total_intensities)
 
     peak_times = scan_times[max_idx]
-    if start_time is not None and end_time is not None:
-        return peak_times[(peak_times >= start_time) & (peak_times <= end_time)]
+
+    if start_time is not None:
+        peak_times = peak_times[peak_times >= start_time]
+    if end_time is not None:
+        peak_times = peak_times[peak_times <= end_time]
+
     else:
         return peak_times
 
