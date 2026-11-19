@@ -214,7 +214,9 @@ class SequencePredictor:
 
         # Initialize CompositionInferrer class with traceback matrix
         matrix = TracebackMatrix.load_with_compression(
-            alphabet=alphabet, compression_rate=int(options.compression_rate)
+            alphabet=alphabet,
+            compression_rate=int(options.compression_rate),
+            max_seq_len=int(options.max_sequence_length),
         )
         inferrer = MatrixBasedInferrer(
             alphabet=alphabet,
