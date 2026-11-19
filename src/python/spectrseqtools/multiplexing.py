@@ -221,6 +221,12 @@ def generate_ms1_windows(
         average_ms1_scan = scan.average(rt_interval=delta_time_window / 2)
         average_ms1_scan.pick_peaks()
 
+        if (
+            average_ms1_scan.peak_set is None
+            or len(average_ms1_scan.peak_set) == 0
+        ):
+            continue
+
         ms1_index_list = average_ms1_scan.scan_indices
         ms1_index_string = "_".join(map(str, ms1_index_list))
 
@@ -508,6 +514,9 @@ def generate_singletons_and_fragments(
 ):
     df_filter = df_window_info.filter(pl.col("ms1_mass_group") == grp_number)
 
+    if df_filter.is_empty():
+        raise ValueError(f"Unknown MS1 mass group: {grp_number}")
+
     adduct_types = ", ".join(
         df_filter["inferred_adduct_type"].unique().sort().to_list()
     )
@@ -524,6 +533,9 @@ def generate_singletons_and_fragments(
 
     ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in sorted(ms2_index_in_grp)]
 
+    if not ms2_scans_in_grp:
+        return None, None
+
     precursor_charges = [
         abs(int(scan.precursor_information.charge))
         for scan in ms2_scans_in_grp
@@ -538,6 +550,12 @@ def generate_singletons_and_fragments(
     else:
         average_ms2_scan = ms2_scans_in_grp[0]
     average_ms2_scan.pick_peaks()
+
+    if (
+        average_ms2_scan.peak_set is None
+        or len(average_ms2_scan.peak_set) == 0
+    ):
+        return None, None
 
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
         scan=average_ms2_scan, precursor_charge_limit=precursor_charge_limit
@@ -554,6 +572,9 @@ def generate_singletons_and_fragments(
         & (240.0 < pl.col("observed_mass"))
         & (200.0 < pl.col("intensity"))
     )
+
+    if fragments.is_empty():
+        return None, None
 
     fragments = (
         fragments.drop("ppm_group")
@@ -678,8 +699,13 @@ def preprocess_multiplexing(
         fragment_list.append(fragments)
         singleton_list.append(singletons)
 
-    fragments = pl.concat(fragment_list)  # , how="diagonal_relaxed")
-    singletons = pl.concat(singleton_list)  # , how="diagonal_relaxed")
+    if not fragment_list:
+        raise ValueError(
+            "No usable groups remained after multiplexed preprocessing."
+        )
+
+    fragments = pl.concat(fragment_list)
+    singletons = pl.concat(singleton_list)
 
     # Save all pre-processing files in preprocessing.output_dir
     if not os.path.exists(options.output_dir):
