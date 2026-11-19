@@ -221,10 +221,7 @@ def generate_ms1_windows(
         average_ms1_scan = scan.average(rt_interval=delta_time_window / 2)
         average_ms1_scan.pick_peaks()
 
-        if (
-            average_ms1_scan.peak_set is None
-            or len(average_ms1_scan.peak_set) == 0
-        ):
+        if average_ms1_scan.peak_set is None or len(average_ms1_scan.peak_set) == 0:
             continue
 
         ms1_index_list = average_ms1_scan.scan_indices
@@ -269,7 +266,9 @@ def generate_ms1_windows(
 
         ms2_idx_by_priority_peak_idx = {}
 
-        for priority_peak_idx, (target, scan) in enumerate(zip(priority_list, ms2_scans)):
+        for priority_peak_idx, (target, scan) in enumerate(
+            zip(priority_list, ms2_scans)
+        ):
             if target.product_scan_id != scan.id:
                 raise ValueError(
                     f"Priority {priority_peak_idx} references {target.product_scan_id!r}, "
@@ -290,10 +289,14 @@ def generate_ms1_windows(
             priority_peak_idx = ms1_peak.peak_idx
 
             if priority_peak_idx not in ms2_idx_by_priority_peak_idx:
-                raise ValueError(f"Unknown MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}")
+                raise ValueError(
+                    f"Unknown MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}"
+                )
 
             if priority_peak_idx in seen_priority_indices:
-                raise ValueError(f"Duplicate MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}")
+                raise ValueError(
+                    f"Duplicate MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}"
+                )
 
             seen_priority_indices.add(priority_peak_idx)
 
@@ -551,10 +554,7 @@ def generate_singletons_and_fragments(
         average_ms2_scan = ms2_scans_in_grp[0]
     average_ms2_scan.pick_peaks()
 
-    if (
-        average_ms2_scan.peak_set is None
-        or len(average_ms2_scan.peak_set) == 0
-    ):
+    if average_ms2_scan.peak_set is None or len(average_ms2_scan.peak_set) == 0:
         return None, None
 
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
@@ -625,21 +625,19 @@ def generate_singletons_and_fragments(
         singletons = default_singletons
 
     if singletons is None or singletons.is_empty():
-        singletons = (load_alphabet(input_path=options.alphabet)
-        .filter(~pl.col("is_modification"))
-        .with_columns(
-            pl.lit(0, dtype=pl.Int64).alias("count"),
-            pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+        singletons = (
+            load_alphabet(input_path=options.alphabet)
+            .filter(~pl.col("is_modification"))
+            .with_columns(
+                pl.lit(0, dtype=pl.Int64).alias("count"),
+                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+            )
         )
-    )
 
-    singletons = (
-        singletons.drop("mz", strict=False)
-        .with_columns(
-            pl.col("count").cast(pl.Int64),
-            pl.col("cluster_score").cast(pl.Float64),
-            pl.lit(grp_number).alias("ms1_mass_group"),
-        )
+    singletons = singletons.drop("mz", strict=False).with_columns(
+        pl.col("count").cast(pl.Int64),
+        pl.col("cluster_score").cast(pl.Float64),
+        pl.lit(grp_number).alias("ms1_mass_group"),
     )
 
     return fragments, singletons
@@ -659,8 +657,8 @@ def preprocess_multiplexing(
 
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
-    # TODO: Investigate if this is needed in any part of the downstream analysis or tests. 
-    # Otherwise, remove it completely 
+    # TODO: Investigate if this is needed in any part of the downstream analysis or tests.
+    # Otherwise, remove it completely
     #     if "true_sequence" not in meta:
     #         meta["true_sequence"] = "".join(meta["true_sequences"])
 
@@ -702,9 +700,7 @@ def preprocess_multiplexing(
         singleton_list.append(singletons)
 
     if not fragment_list:
-        raise ValueError(
-            "No usable groups remained after multiplexed preprocessing."
-        )
+        raise ValueError("No usable groups remained after multiplexed preprocessing.")
 
     fragments = pl.concat(fragment_list)
     singletons = pl.concat(singleton_list)
