@@ -659,8 +659,10 @@ def preprocess_multiplexing(
 
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
-        if "true_sequence" not in meta:
-            meta["true_sequence"] = "".join(meta["true_sequences"])
+    # TODO: Investigate if this is needed in any part of the downstream analysis or tests. 
+    # Otherwise, remove it completely 
+    #     if "true_sequence" not in meta:
+    #         meta["true_sequence"] = "".join(meta["true_sequences"])
 
     (options, error, ms1_deconvoluter, ms2_deconvoluter) = initialize_parsers(options)
 
