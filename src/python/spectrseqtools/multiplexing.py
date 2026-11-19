@@ -13,7 +13,7 @@ from clr_loader import get_mono
 from scipy.signal import find_peaks
 
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.file_settings import PreprocessingFileSettings
+from spectrseqtools.file_settings import PreprocessingFileSettings, load_alphabet
 from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.parsers import PreprocessingOptions
 from spectrseqtools.preprocessing.deconvolution import (
@@ -176,8 +176,7 @@ def identify_tic_peaks(raw_file_read, start_time, end_time):
     if end_time is not None:
         peak_times = peak_times[peak_times <= end_time]
 
-    else:
-        return peak_times
+    return peak_times
 
 
 def generate_ms1_windows(
@@ -481,8 +480,20 @@ def generate_global_singletons(options, error):
         error=preprocessor.error,
     )
 
-    default_singletons = preprocessor.identify_singletons()
-    return default_singletons
+    peak_list = preprocessor.collect_raw_peaks()
+
+    if not peak_list.peaks:
+        return None
+
+    default_singletons = peak_list.to_singletons(
+        alphabet_path=preprocessor.file_settings.alphabet_path,
+        error=preprocessor.error,
+    )
+
+    if default_singletons is None or default_singletons.is_empty():
+        return None
+
+    return default_singletons.drop("mz")
 
 
 def generate_singletons_and_fragments(
@@ -580,18 +591,34 @@ def generate_singletons_and_fragments(
         ),
     )
 
-    if singleton_peaks is None or len(singleton_peaks.peaks) == 0:
-        singletons = default_singletons
-    else:
-        singletons = singleton_peaks.to_singletons(
-            alphabet_path=options.alphabet, error=error, min_score=-np.inf
-        )
-        if singletons is None:
-            singletons = default_singletons
+    singletons = None
 
-    singletons = (singletons
-        .drop("mz", strict=False)
-        .with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
+    if singleton_peaks is not None and singleton_peaks.peaks:
+        singletons = singleton_peaks.to_singletons(
+            alphabet_path=options.alphabet,
+            error=error,
+            min_score=-np.inf,
+        )
+
+    if singletons is None or singletons.is_empty():
+        singletons = default_singletons
+
+    if singletons is None or singletons.is_empty():
+        singletons = (load_alphabet(input_path=options.alphabet)
+        .filter(~pl.col("is_modification"))
+        .with_columns(
+            pl.lit(0, dtype=pl.Int64).alias("count"),
+            pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+        )
+    )
+
+    singletons = (
+        singletons.drop("mz", strict=False)
+        .with_columns(
+            pl.col("count").cast(pl.Int64),
+            pl.col("cluster_score").cast(pl.Float64),
+            pl.lit(grp_number).alias("ms1_mass_group"),
+        )
     )
 
     return fragments, singletons
