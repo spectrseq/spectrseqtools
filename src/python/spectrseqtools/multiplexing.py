@@ -70,7 +70,7 @@ def priority_list_charge_filter(priority_list, ms2_scans, min_precursor_charge):
 
         if (
             isinstance(priority_peak.charge, int)
-            and priority_peak.charge >= min_precursor_charge
+            and abs(priority_peak.charge) >= min_precursor_charge
         ):
             new_priority_list.append(priority_list[p])
             new_ms2_scans.append(ms2_by_id[priority_peak.product_scan_id])
