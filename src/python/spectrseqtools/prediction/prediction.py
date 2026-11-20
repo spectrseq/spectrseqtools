@@ -317,6 +317,25 @@ class SequencePredictor:
         except Exception:
             return Prediction.default(meta=self.inferrer.seq)
 
+        # Filter out terminal fragments that do not fit anywhere in skeleton
+        print(
+            f"Number of terminal fragments before filter:\t "
+            f"{len(fragments.start)} + {len(fragments.end)}"
+        )
+        try:
+            fragments.filter_with_linear_optimization(
+                inferrer=self.inferrer,
+                skeleton_seq=skeleton_seq,
+                solver_params=solver_params,
+                terminal_fragments_only=True,
+            )
+        except ValueError or IndexError:
+            return Prediction.default(meta=self.inferrer.seq)
+        print(
+            f"Number of terminal fragments after filter:\t "
+            f"{len(fragments.start)} + {len(fragments.end)}"
+        )
+
         print()
         print("Number of fragments before skeleton-based reduction:", len(fragments))
 

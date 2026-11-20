@@ -460,6 +460,7 @@ class StandardUnitFragments:
         inferrer: CompositionInferrer,
         skeleton_seq: SkeletonSequence,
         solver_params: SolverParameters,
+        terminal_fragments_only: bool = False,
     ) -> None:
         """
         Filter out fragments that the LP cannot individually fit into sequence.
@@ -472,19 +473,20 @@ class StandardUnitFragments:
             Skeleton sequence.
         solver_params : SolverParameters
             Solver parameter.
+        terminal_fragments_only : bool, optional
+            Flag whether to only consider terminal fragments. Default: False.
 
         """
         is_invalid = []
         for fragment in self.fragments.rows(named=True):
             try:
-                # TODO: Add terminal-fragment filter based on LP output of
-                #  sequence-length estimation and reuse the below (for speed-up)
-                # # Skip terminal (i.e. non-internal) fragments
-                # if (
-                #     "START" in fragment["fragmentation"]
-                #     or "END" in fragment["fragmentation"]
-                # ):
-                #     continue
+                # Skip non-terminal (i.e. internal) fragments if flag is set
+                if (
+                    terminal_fragments_only
+                    and "START" not in fragment["fragmentation"]
+                    and "END" not in fragment["fragmentation"]
+                ):
+                    continue
 
                 # Initialize LP instance for a singular fragment
                 filter_instance = LinearProgramInstance(
