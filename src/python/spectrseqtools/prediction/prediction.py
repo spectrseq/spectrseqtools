@@ -269,7 +269,7 @@ class SequencePredictor:
 
         fragments.index()
 
-        print("Number of fragments before prediction:", len(fragments))
+        print("Number of fragments before prediction:\t\t\t", len(fragments))
         print()
 
         # Predict sequence
@@ -318,8 +318,9 @@ class SequencePredictor:
             return Prediction.default(meta=self.inferrer.seq)
 
         # Filter out terminal fragments that do not fit anywhere in skeleton
+        print()
         print(
-            f"Number of terminal fragments before filter:\t "
+            f"Number of terminal fragments before filter:\t\t "
             f"{len(fragments.start)} + {len(fragments.end)}"
         )
         try:
@@ -332,12 +333,21 @@ class SequencePredictor:
         except ValueError or IndexError:
             return Prediction.default(meta=self.inferrer.seq)
         print(
-            f"Number of terminal fragments after filter:\t "
+            f"Number of terminal fragments after filter:\t\t "
             f"{len(fragments.start)} + {len(fragments.end)}"
         )
 
+        # Perform final class assignment
         print()
-        print("Number of fragments before skeleton-based reduction:", len(fragments))
+        print("Number of fragments before final class assignment:\t", len(fragments))
+        try:
+            fragments.finalize_class_assignment()
+        except ValueError or IndexError:
+            return Prediction.default(meta=self.inferrer.seq)
+        print("Number of fragments after final class assignment:\t", len(fragments))
+
+        print()
+        print("Number of fragments before skeleton-based reduction:\t", len(fragments))
 
         # Reduce nucleotide alphabet based on skeleton
         fragments, mapping = self._reduce_alphabet(
@@ -345,7 +355,7 @@ class SequencePredictor:
         )
         skeleton_seq.update_indexing(mapping=mapping)
 
-        print("Number of fragments after skeleton-based reduction:", len(fragments))
+        print("Number of fragments after skeleton-based reduction:\t", len(fragments))
         print()
 
         print("Alphabet after skeleton-based reduction:")
@@ -353,7 +363,9 @@ class SequencePredictor:
         print()
 
         # Filter out all internal fragments that do not fit anywhere in skeleton
-        print("Number of internal fragments before filter: ", len(fragments.internal))
+        print(
+            "Number of internal fragments before filter:\t\t", len(fragments.internal)
+        )
 
         # TODO: Investigate LP initialization of highly modified sequences
         #  for being wrong-length predictions (min/max length issue?)
@@ -366,10 +378,10 @@ class SequencePredictor:
         except ValueError or IndexError:
             return Prediction.default(meta=self.inferrer.seq)
 
-        print("Number of internal fragments after filter: ", len(fragments.internal))
+        print("Number of internal fragments after filter:\t\t", len(fragments.internal))
 
         print()
-        print("Number of fragments considered for fitting:", len(fragments))
+        print("Number of fragments considered for fitting:\t\t", len(fragments))
         print()
 
         fragments.print_warning()
