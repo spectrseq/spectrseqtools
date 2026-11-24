@@ -116,8 +116,6 @@ def select_start_tag(tag: StartTag | float) -> float:
         case StartTag.P:
             return 97.975308
         case StartTag.PS:
-            # return 113.952448
-            # return 113.95354516
             return 113.95405
         case StartTag.THIOAMIDE:
             return 170.98
