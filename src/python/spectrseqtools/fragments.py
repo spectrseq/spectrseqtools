@@ -133,16 +133,8 @@ class StandardUnitFragments:
             start_fragments, end_fragments, seq_len=seq_len
         ).fragments
 
-        # TODO: Move filter outside of skeleton building
-        # Remove all "internal" fragment duplicates that are truly terminal fragments
-        frag_internal = internal_fragments.fragments.filter(
-            ~pl.col("fragment_index").is_in(
-                frag_terminal.get_column("fragment_index").to_list()
-            )
-        )
-
         # Rebuild fragment dataframe from internal and terminal fragments
-        fragments = frag_internal.vstack(frag_terminal).sort("index")
+        fragments = internal_fragments.fragments.vstack(frag_terminal).sort("index")
 
         # Ensure all end indices match estimated sequence length
         fragments = fragments.with_columns(
@@ -460,6 +452,7 @@ class StandardUnitFragments:
         inferrer: CompositionInferrer,
         skeleton_seq: SkeletonSequence,
         solver_params: SolverParameters,
+        terminal_fragments_only: bool = False,
     ) -> None:
         """
         Filter out fragments that the LP cannot individually fit into sequence.
@@ -472,19 +465,20 @@ class StandardUnitFragments:
             Skeleton sequence.
         solver_params : SolverParameters
             Solver parameter.
+        terminal_fragments_only : bool, optional
+            Flag whether to only consider terminal fragments. Default: False.
 
         """
         is_invalid = []
         for fragment in self.fragments.rows(named=True):
             try:
-                # TODO: Add terminal-fragment filter based on LP output of
-                #  sequence-length estimation and reuse the below (for speed-up)
-                # # Skip terminal (i.e. non-internal) fragments
-                # if (
-                #     "START" in fragment["fragmentation"]
-                #     or "END" in fragment["fragmentation"]
-                # ):
-                #     continue
+                # Skip non-terminal (i.e. internal) fragments if flag is set
+                if (
+                    terminal_fragments_only
+                    and "START" not in fragment["fragmentation"]
+                    and "END" not in fragment["fragmentation"]
+                ):
+                    continue
 
                 # Initialize LP instance for a singular fragment
                 filter_instance = LinearProgramInstance(
@@ -504,6 +498,24 @@ class StandardUnitFragments:
 
         # Return only valid fragments
         self.filter_by_index_list(invalid_indices=is_invalid)
+
+    def finalize_class_assignment(self) -> None:
+        """Assign final class for each original fragment."""
+        start_frags = self.start.fragments
+        start_indices = start_frags.get_column("fragment_index").to_list()
+
+        end_frags = self.end.fragments.filter(
+            ~pl.col("fragment_index").is_in(start_indices)
+        )
+        end_indices = end_frags.get_column("fragment_index").to_list()
+
+        internal_frags = self.internal.fragments.filter(
+            ~pl.col("fragment_index").is_in(start_indices + end_indices)
+        )
+
+        self.fragments = (
+            internal_frags.vstack(start_frags).vstack(end_frags).sort("index")
+        )
 
 
 @dataclass
