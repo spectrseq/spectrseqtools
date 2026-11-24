@@ -39,6 +39,7 @@ class StartTag(Enum):
 
     OH = "OH"
     P = "P"
+    PS = "PS"
     THIOAMIDE = "thioamide"
     BIOMERS_6FAM = "biomers_6fam"
     IDT_6FAM = "idt_6fam"
