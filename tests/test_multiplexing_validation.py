@@ -361,11 +361,6 @@ def precursor_mass_metrics(raw_preprocessing_result):
         ),
         masses=alphabet,
     )
-    alphabet_ids = {
-        name 
-        for nucleotide in reference_alphabet.alphabet
-        for name in nucleotide.names
-    }
 
     sequences = meta.get("true_sequences")
     if sequences is None:
