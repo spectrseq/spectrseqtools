@@ -1,0 +1,7 @@
+identity: 2025-06-25_AS_Ecoli_tRNA_Gly_117_2ug_RNase_T1_2,2ul
+true_sequences:
+  - "GCGGGCG4AGUUCAAUGGDAGAACGAGAGCUUCCCAAGCUCUAUACGAGGGTPCGAUUCCCUUCGCCCGCUCCA"
+skip_preprocessing: False
+skip_prediction: True
+skip_postprocessing: True
+in_silico_t1_digest: True

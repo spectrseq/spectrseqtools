@@ -12,6 +12,6 @@ true_sequences:
   - "UUAGCCCG0GA"
   - "GAU0CUAGAUC"
   - "UAGCGUUUGAUGAUC"
-skip_preprocessing: True
+skip_preprocessing: False
 skip_prediction: True
 skip_postprocessing: True

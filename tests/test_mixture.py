@@ -49,8 +49,8 @@ def test_preprocess_mixture(testcase):
                 input=base_path / "fragments.raw",
                 meta=base_path / "fragments.meta.yaml",
                 output_dir=base_path,
-                min_time=10.0,
-                max_time=15.0,
+                min_time=15.0,
+                max_time=21.0,
                 window_size=0.2,
             )
         )
