@@ -110,32 +110,15 @@ class Predictor:
         all_pred_fragments = []
         all_pred_sequences = []
         for group_idx in tqdm.tqdm(alph_indices, desc="Predicting sequences"):
-            print(f"\n\n--- Group {group_idx} -----------------------\n")
-
-            logger.disable("spectrseqtools.fragments")
-            try:
-                alphabet = alphabets[alph_indices.index(group_idx)]
-
-                predictor = SequencePredictor(
-                    solver_params=self.solver_params,
-                    file_settings=self.file_settings,
-                    classifier=self.classifier,
-                    filter_params=self.filter_params,
-                    alphabet=alphabet,
-                    raw_fragments=raw_fragments[frag_indices.index(group_idx)],
-                    options=self.options,
-                )
-                prediction, su_fragments = predictor.predict()
-
-                print("Predicted sequence =\t", prediction.sequence)
-            except NotImplementedError:
-                continue
-
-            all_su_fragments.append(su_fragments.fragments)
-            all_pred_fragments.append(prediction.fragments.fragments)
-            all_pred_sequences.append(
-                prediction.sequence.to_dataframe(nucleotide_alphabet=alphabet)
+            su_fragments, pred_fragments, pred_seq = self.predict_sequence(
+                group_idx=group_idx,
+                alphabet=alphabets[alph_indices.index(group_idx)],
+                raw_fragments=raw_fragments[frag_indices.index(group_idx)],
             )
+
+            all_su_fragments.append(su_fragments)
+            all_pred_fragments.append(pred_fragments)
+            all_pred_sequences.append(pred_seq)
 
         # Collect and concatenate prediction fragments and sequences
         su_fragments = pl.concat(all_su_fragments)
@@ -155,9 +138,62 @@ class Predictor:
         )
 
         if len(alph_indices) == 1:
-            return prediction
+            return Prediction.from_files(
+                sequence_path=self.file_settings.sequence_path,
+                fragments_path=self.file_settings.predicted_fragment_path,
+            )
 
         return pred_sequences.get_column("prediction").to_list()
+
+    def predict_sequence(
+        self, group_idx: int, alphabet: NucleotideAlphabet, raw_fragments: RawFragments
+    ) -> Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+        """
+        Predict sequence for given MS1 group.
+
+        Parameters
+        ----------
+        group_idx : int
+            Index of given MS1 group.
+        alphabet : NucleotideAlphabet
+            Nucleotide alphabet.
+        raw_fragments : RawFragments
+            Raw fragments.
+
+        Returns
+        -------
+        su_fragments : Polars.DataFrame
+            Standard-unit fragments.
+        pred_fragments : Polars.DataFrame
+            Predicted fragments.
+        pred_sequence : Polars.DataFrame
+            Predicted sequence.
+
+        """
+        print(f"\n\n--- Group {group_idx} -----------------------\n")
+
+        logger.disable("spectrseqtools.fragments")
+        try:
+            predictor = SequencePredictor(
+                solver_params=self.solver_params,
+                file_settings=self.file_settings,
+                classifier=self.classifier,
+                filter_params=self.filter_params,
+                alphabet=alphabet,
+                raw_fragments=raw_fragments,
+                options=self.options,
+            )
+            prediction, su_fragments = predictor.predict()
+
+            print("Predicted sequence =\t", prediction.sequence)
+        except NotImplementedError:
+            return None, None, None
+
+        return (
+            su_fragments.fragments,
+            prediction.fragments.fragments,
+            prediction.sequence.to_dataframe(nucleotide_alphabet=alphabet),
+        )
 
 
 class SequencePredictor:
