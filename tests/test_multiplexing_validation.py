@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import pytest
 import polars as pl
@@ -10,6 +9,12 @@ from spectrseqtools.fragmentation_masses import (
     FragmentationRelatedMasses,
     StartTag,
 )
+from spectrseqtools.multiplexing import preprocess_multiplexing
+from spectrseqtools.parsers import PreprocessingOptions
+from spectrseqtools.dataclasses import Sequence
+from spectrseqtools.error_calculator import ErrorCalculator
+from spectrseqtools.file_settings import load_alphabet
+from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 
 
 def get_fragmentation_mass_candidates(meta):
@@ -42,8 +47,6 @@ def get_fragmentation_mass_candidates(meta):
 
 @pytest.fixture(scope="module")
 def raw_preprocessing_result():
-    from spectrseqtools.multiplexing import preprocess_multiplexing
-    from spectrseqtools.parsers import PreprocessingOptions
 
     testcasenumber = "test_05"
 
@@ -295,11 +298,6 @@ def test_ms2_fragment_labels_are_unique_per_group(raw_preprocessing_result):
 
 @pytest.fixture(scope="module")
 def precursor_mass_metrics(raw_preprocessing_result):
-    from spectrseqtools.dataclasses import Sequence
-    from spectrseqtools.error_calculator import ErrorCalculator
-    from spectrseqtools.file_settings import load_alphabet
-    from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
-    from spectrseqtools.nucleotide_alphabet import NucleotideAlphabet
 
     result = raw_preprocessing_result
 
