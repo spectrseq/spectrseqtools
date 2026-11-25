@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Prediction of sequence and fragments."""
 
+import multiprocessing as mp
 from typing import List, Set, Tuple
 
 import polars as pl
-import tqdm
 import yaml
 from loguru import logger
 
@@ -27,6 +27,8 @@ from spectrseqtools.prediction.sequence_inference import LinearProgramInstance
 from spectrseqtools.prediction.skeleton_building import SkeletonBuilder
 from spectrseqtools.prediction.traceback_matrix import TracebackMatrix
 from spectrseqtools.sequence_length import SequenceLengthEstimator
+
+NUM_CORES = 2
 
 
 class Predictor:
@@ -105,20 +107,37 @@ class Predictor:
         if alph_indices != frag_indices:
             raise Exception("MS1 mass groups of fragments and alphabets differ!")
 
-        # Predict sequences
+        # Predict sequences via pooling
+        # NOTE: Use "spawn" (instead of default "fork") to avoid Polars deadlock
+        pool = mp.get_context("spawn").Pool(min(NUM_CORES, len(alph_indices)))
+        results = [
+            pool.apply_async(
+                self.predict_sequence,
+                args=[
+                    idx,
+                    alphabets[alph_indices.index(idx)],
+                    raw_fragments[frag_indices.index(idx)],
+                ],
+            )
+            for idx in alph_indices
+        ]
+        pool.close()
+        pool.join()
+
+        results = [res.get() for res in results]
+
+        # Unpack results
         all_su_fragments = []
         all_pred_fragments = []
         all_pred_sequences = []
-        for group_idx in tqdm.tqdm(alph_indices, desc="Predicting sequences"):
-            su_fragments, pred_fragments, pred_seq = self.predict_sequence(
-                group_idx=group_idx,
-                alphabet=alphabets[alph_indices.index(group_idx)],
-                raw_fragments=raw_fragments[frag_indices.index(group_idx)],
-            )
 
-            all_su_fragments.append(su_fragments)
-            all_pred_fragments.append(pred_fragments)
-            all_pred_sequences.append(pred_seq)
+        for res in results:
+            if res[0] is not None:
+                all_su_fragments.append(res[0])
+            if res[1] is not None:
+                all_pred_fragments.append(res[1])
+            if res[2] is not None:
+                all_pred_sequences.append(res[2])
 
         # Collect and concatenate prediction fragments and sequences
         su_fragments = pl.concat(all_su_fragments)
