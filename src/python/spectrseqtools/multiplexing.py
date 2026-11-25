@@ -124,10 +124,7 @@ def initialize_parsers(options):
         max_missed_peaks=options.max_missed_peaks,
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
-        scorer=ms_ditp.PenalizedMSDeconVFitter(
-            minimum_score=options.envelope_min_score,
-            mass_error_tolerance=options.envelope_error_tol,
-        ),
+        scorer=ms_ditp.PenalizedMSDeconVFitter(),
         charge_range=options.ms1_charge_range,
         truncate_after=options.ms1_truncate_after,
     )
@@ -491,16 +488,34 @@ def generate_global_singletons(options, error):
 
     peak_list = preprocessor.collect_raw_peaks()
 
+    # As a fallback, if there are no "global" singletons,
+    # use the unmodified bases as the default singletons
     if not peak_list.peaks:
-        return None
+        return (
+            load_alphabet(input_path=options.alphabet)
+            .filter(~pl.col("is_modification"))
+            .with_columns(
+                pl.lit(0, dtype=pl.Int64).alias("count"),
+                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+            )
+        )
 
     default_singletons = peak_list.to_singletons(
         alphabet_path=preprocessor.file_settings.alphabet_path,
         error=preprocessor.error,
     )
 
+    # As a fallback, if there are no "global" singletons,
+    # use the unmodified bases as the default singletons
     if default_singletons is None or default_singletons.is_empty():
-        return None
+        return (
+            load_alphabet(input_path=options.alphabet)
+            .filter(~pl.col("is_modification"))
+            .with_columns(
+                pl.lit(0, dtype=pl.Int64).alias("count"),
+                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+            )
+        )
 
     return default_singletons.drop("mz")
 
@@ -621,18 +636,10 @@ def generate_singletons_and_fragments(
             min_score=-np.inf,
         )
 
+    # If there are no singletons on the averaged MS2 scans,
+    # use the "global" singletons taken from the whole TIC as a fallback
     if singletons is None or singletons.is_empty():
         singletons = default_singletons
-
-    if singletons is None or singletons.is_empty():
-        singletons = (
-            load_alphabet(input_path=options.alphabet)
-            .filter(~pl.col("is_modification"))
-            .with_columns(
-                pl.lit(0, dtype=pl.Int64).alias("count"),
-                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
-            )
-        )
 
     singletons = singletons.drop("mz", strict=False).with_columns(
         pl.col("count").cast(pl.Int64),
