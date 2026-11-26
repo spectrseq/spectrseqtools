@@ -136,7 +136,10 @@ def initialize_parsers(options):
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
         scorer=ms_ditp.MSDeconVFitter(
-            minimum_score=options.envelope_min_score,
+            #TODO: envelope_min_score for MS2 deconvolution has to 
+            # be separate from MS1, for now it is set to zero since
+            # for multiplexing, it yields better results.
+            minimum_score=0,#options.envelope_min_score,
             mass_error_tolerance=options.envelope_error_tol,
         ),
         charge_range=options.ms2_charge_range,
