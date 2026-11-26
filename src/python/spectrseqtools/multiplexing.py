@@ -665,8 +665,8 @@ def preprocess_multiplexing(
 
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
-    # TODO: Investigate if the join below is needed in any part
-    # of the downstream analysis or tests.
+        # TODO: Investigate if the join below is needed in any part
+        # of the downstream analysis or tests.
         if "true_sequence" not in meta:
             meta["true_sequence"] = "".join(meta["true_sequences"])
 
