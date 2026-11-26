@@ -13,7 +13,7 @@ from clr_loader import get_mono
 from scipy.signal import find_peaks
 
 from spectrseqtools.error_calculator import ErrorCalculator
-from spectrseqtools.file_settings import PreprocessingFileSettings
+from spectrseqtools.file_settings import PreprocessingFileSettings, load_alphabet
 from spectrseqtools.fragmentation_masses import FragmentationRelatedMasses
 from spectrseqtools.parsers import PreprocessingOptions
 from spectrseqtools.preprocessing.deconvolution import (
@@ -63,16 +63,17 @@ COL_TYPES_MS1_CLUSTER = {
 def priority_list_charge_filter(priority_list, ms2_scans, min_precursor_charge):
     new_priority_list = []
     new_ms2_scans = []
+    ms2_by_id = {scan.id: scan for scan in ms2_scans}
 
     for p in range(len(priority_list)):
         priority_peak = priority_list[p]
 
         if (
             isinstance(priority_peak.charge, int)
-            and priority_peak.charge >= min_precursor_charge
+            and abs(priority_peak.charge) >= min_precursor_charge
         ):
             new_priority_list.append(priority_list[p])
-            new_ms2_scans.append(ms2_scans[p])
+            new_ms2_scans.append(ms2_by_id[priority_peak.product_scan_id])
 
     return new_priority_list, new_ms2_scans
 
@@ -120,13 +121,10 @@ def initialize_parsers(options):
     ms1_deconvoluter = MS1Deconvoluter(
         minimum_intensity=options.min_intensity,
         averagine=averagine,
-        max_missed_peaks=1,  # options.max_missed_peaks,
+        max_missed_peaks=options.max_missed_peaks,
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
-        scorer=ms_ditp.PenalizedMSDeconVFitter(
-            # minimum_score=options.envelope_min_score,
-            # mass_error_tolerance=options.envelope_error_tol,
-        ),
+        scorer=ms_ditp.PenalizedMSDeconVFitter(),
         charge_range=options.ms1_charge_range,
         truncate_after=options.ms1_truncate_after,
     )
@@ -138,6 +136,9 @@ def initialize_parsers(options):
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
         scorer=ms_ditp.MSDeconVFitter(
+            # TODO: envelope_min_score for MS2 deconvolution has to
+            # be separate from MS1, for now it is set to zero since
+            # for multiplexing, it yields better results.
             minimum_score=0,  # options.envelope_min_score,
             mass_error_tolerance=options.envelope_error_tol,
         ),
@@ -169,10 +170,13 @@ def identify_tic_peaks(raw_file_read, start_time, end_time):
     max_idx, _ = find_peaks(total_intensities)
 
     peak_times = scan_times[max_idx]
-    if start_time is not None and end_time is not None:
-        return peak_times[(peak_times >= start_time) & (peak_times <= end_time)]
-    else:
-        return peak_times
+
+    if start_time is not None:
+        peak_times = peak_times[peak_times >= start_time]
+    if end_time is not None:
+        peak_times = peak_times[peak_times <= end_time]
+
+    return peak_times
 
 
 def generate_ms1_windows(
@@ -186,6 +190,12 @@ def generate_ms1_windows(
 
     ms1_to_ms2_idx = ms1_to_ms2_dict(raw_file_read)
     peak_times = identify_tic_peaks(raw_file_read, start_time, end_time)
+
+    if len(peak_times) == 0:
+        raise ValueError(
+            "No TIC local maxima were found within the requested "
+            f"retention-time bounds: start={start_time}, end={end_time}."
+        )
 
     raw_file_read.reset()
     raw_file_read.make_iterator(grouped=True)
@@ -210,6 +220,9 @@ def generate_ms1_windows(
 
         average_ms1_scan = scan.average(rt_interval=delta_time_window / 2)
         average_ms1_scan.pick_peaks()
+
+        if average_ms1_scan.peak_set is None or len(average_ms1_scan.peak_set) == 0:
+            continue
 
         ms1_index_list = average_ms1_scan.scan_indices
         ms1_index_string = "_".join(map(str, ms1_index_list))
@@ -248,16 +261,49 @@ def generate_ms1_windows(
             options.min_precursor_charge,
         )
 
+        if len(priority_list) != len(ms2_scans):
+            raise ValueError("Priority targets and MS2 scans are not aligned.")
+
+        ms2_idx_by_priority_peak_idx = {}
+
+        for priority_peak_idx, (target, scan) in enumerate(
+            zip(priority_list, ms2_scans)
+        ):
+            if target.product_scan_id != scan.id:
+                raise ValueError(
+                    f"Priority {priority_peak_idx} references {target.product_scan_id!r}, "
+                    f"but its paired scan is {scan.id!r}."
+                )
+
+            ms2_idx_by_priority_peak_idx[priority_peak_idx] = scan.index
+
         # Deconvolute MS1 scan to get list of deisotoped peaks
         ms1_peaks = ms1_deconvoluter.deconvolute_scan(
             scan=average_ms1_scan,
             priority_list=priority_list,
         ).peaks
 
-        if len(ms1_peaks) != len(ms2_scans):
-            raise Exception("Number of MS1 priority peaks and MS2 scans are not equal!")
-        for ms1_peak, ms2_scan in zip(ms1_peaks, ms2_scans):
-            ms1_peak_to_ms2_idx[ms1_index_string + "_" + str(ms1_peak.peak_idx)].add(
+        seen_priority_indices = set()
+
+        for ms1_peak in ms1_peaks:
+            priority_peak_idx = ms1_peak.peak_idx
+
+            if priority_peak_idx not in ms2_idx_by_priority_peak_idx:
+                raise ValueError(
+                    f"Unknown MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}"
+                )
+
+            if priority_peak_idx in seen_priority_indices:
+                raise ValueError(
+                    f"Duplicate MS1 priority index: {priority_peak_idx}, RT: {min_window_time} to {max_window_time}"
+                )
+
+            seen_priority_indices.add(priority_peak_idx)
+
+            ms2_idx = ms2_idx_by_priority_peak_idx[priority_peak_idx]
+            ms2_scan = ms2_idx_to_scan[ms2_idx]
+
+            ms1_peak_to_ms2_idx[ms1_index_string + "_" + str(priority_peak_idx)].add(
                 ms2_scan.index
             )
 
@@ -267,11 +313,19 @@ def generate_ms1_windows(
                     "max_window_time": max_window_time,
                     "ms1_mass": ms1_peak.neutral_mass,
                     "ms1_index": ms1_index_string,
-                    "ms1_peak_index": str(ms1_peak.peak_idx),
+                    "ms1_peak_index": str(priority_peak_idx),
                     "ms1_time_group": tic_grp,
                     "ms1_peak_id": ms1_index_string + "_" + str(ms1_peak.peak_idx),
                 }
             )
+
+    if not window_mass_info:
+        raise ValueError(
+            f"No usable MS1 precursor assignments were produced from "
+            f"{len(peak_times)} selected TIC windows. "
+            "Check MS2 availability, precursor-charge filtering, "
+            "and deconvolution settings."
+        )
 
     df_window_info = pl.DataFrame(window_mass_info)
 
@@ -431,12 +485,42 @@ def generate_global_singletons(options, error):
 
     preprocessor.singleton_boundaries = SingletonBoundaries.from_alphabet_file(
         input_path=options.alphabet,
-        boundary_factor=0.5,
+        boundary_factor=options.boundary_factor,
         error=preprocessor.error,
     )
 
-    default_singletons = preprocessor.identify_singletons()
-    return default_singletons
+    peak_list = preprocessor.collect_raw_peaks()
+
+    # As a fallback, if there are no "global" singletons,
+    # use the unmodified bases as the default singletons
+    if not peak_list.peaks:
+        return (
+            load_alphabet(input_path=options.alphabet)
+            .filter(~pl.col("is_modification"))
+            .with_columns(
+                pl.lit(0, dtype=pl.Int64).alias("count"),
+                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+            )
+        )
+
+    default_singletons = peak_list.to_singletons(
+        alphabet_path=preprocessor.file_settings.alphabet_path,
+        error=preprocessor.error,
+    )
+
+    # As a fallback, if there are no "global" singletons,
+    # use the unmodified bases as the default singletons
+    if default_singletons is None or default_singletons.is_empty():
+        return (
+            load_alphabet(input_path=options.alphabet)
+            .filter(~pl.col("is_modification"))
+            .with_columns(
+                pl.lit(0, dtype=pl.Int64).alias("count"),
+                pl.lit(-1.0, dtype=pl.Float64).alias("cluster_score"),
+            )
+        )
+
+    return default_singletons.drop("mz")
 
 
 def generate_singletons_and_fragments(
@@ -451,12 +535,15 @@ def generate_singletons_and_fragments(
 ):
     df_filter = df_window_info.filter(pl.col("ms1_mass_group") == grp_number)
 
+    if df_filter.is_empty():
+        raise ValueError(f"Unknown MS1 mass group: {grp_number}")
+
     adduct_types = ", ".join(
         df_filter["inferred_adduct_type"].unique().sort().to_list()
     )
     min_window_time = df_filter["min_window_time"].min()
     max_window_time = df_filter["max_window_time"].max()
-    intact_mass = df_filter["ms1_mass"].min()
+    intact_mass = df_filter["adduct_normalized_ms1_mass"].min()
 
     if intact_mass < fragmentation_masses.tag_mass:
         return None, None
@@ -465,7 +552,10 @@ def generate_singletons_and_fragments(
     for ms2_idx_list in df_filter["ms2_scan_idx"].sort().unique().to_list():
         [ms2_index_in_grp.add(idx) for idx in ms2_idx_list]
 
-    ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in list(ms2_index_in_grp)]
+    ms2_scans_in_grp = [ms2_idx_to_scan[idx] for idx in sorted(ms2_index_in_grp)]
+
+    if not ms2_scans_in_grp:
+        return None, None
 
     precursor_charges = [
         abs(int(scan.precursor_information.charge))
@@ -482,6 +572,9 @@ def generate_singletons_and_fragments(
         average_ms2_scan = ms2_scans_in_grp[0]
     average_ms2_scan.pick_peaks()
 
+    if average_ms2_scan.peak_set is None or len(average_ms2_scan.peak_set) == 0:
+        return None, None
+
     ms2_peak_list = ms2_deconvoluter.deconvolute_scan(
         scan=average_ms2_scan, precursor_charge_limit=precursor_charge_limit
     )
@@ -497,6 +590,9 @@ def generate_singletons_and_fragments(
         & (240.0 < pl.col("observed_mass"))
         & (200.0 < pl.col("intensity"))
     )
+
+    if fragments.is_empty():
+        return None, None
 
     fragments = (
         fragments.drop("ppm_group")
@@ -529,21 +625,31 @@ def generate_singletons_and_fragments(
         average_ms2_scan,
         SingletonBoundaries.from_alphabet_file(
             input_path=options.alphabet,
-            boundary_factor=0.5,
+            boundary_factor=options.boundary_factor,
             error=error,
         ),
     )
 
-    if singleton_peaks is None or len(singleton_peaks.peaks) == 0:
-        singletons = default_singletons
-    else:
-        singletons = singleton_peaks.to_singletons(
-            alphabet_path=options.alphabet, error=error, min_score=-np.inf
+    singletons = (
+        singleton_peaks.to_singletons(
+            alphabet_path=options.alphabet,
+            error=error,
+            min_score=-np.inf,
         )
-        if singletons is None:
-            singletons = default_singletons
+        if singleton_peaks is not None and singleton_peaks.peaks
+        else None
+    )
 
-    singletons = singletons.with_columns(pl.lit(grp_number).alias("ms1_mass_group"))
+    # If there are no singletons on the averaged MS2 scans,
+    # use the "global" singletons taken from the whole TIC as a fallback
+    if singletons is None or singletons.is_empty():
+        singletons = default_singletons
+
+    singletons = singletons.drop("mz", strict=False).with_columns(
+        pl.col("count").cast(pl.Int64),
+        pl.col("cluster_score").cast(pl.Float64),
+        pl.lit(grp_number).alias("ms1_mass_group"),
+    )
 
     return fragments, singletons
 
@@ -559,6 +665,8 @@ def preprocess_multiplexing(
 
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
+        # TODO: Investigate if the join below is needed in any part
+        # of the downstream analysis or tests.
         if "true_sequence" not in meta:
             meta["true_sequence"] = "".join(meta["true_sequences"])
 
@@ -599,8 +707,11 @@ def preprocess_multiplexing(
         fragment_list.append(fragments)
         singleton_list.append(singletons)
 
-    fragments = pl.concat(fragment_list)  # , how="diagonal_relaxed")
-    singletons = pl.concat(singleton_list)  # , how="diagonal_relaxed")
+    if not fragment_list:
+        raise ValueError("No usable groups remained after multiplexed preprocessing.")
+
+    fragments = pl.concat(fragment_list)
+    singletons = pl.concat(singleton_list)
 
     # Save all pre-processing files in preprocessing.output_dir
     if not os.path.exists(options.output_dir):
