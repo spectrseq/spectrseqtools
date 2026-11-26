@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0](https://github.com/spectrseq/spectrseqtools/compare/v0.4.0...v0.5.0) (2026-11-26)
+
+
+### Features
+
+* add thiophosphate to start tags ([#83](https://github.com/spectrseq/spectrseqtools/issues/83)) ([0025e58](https://github.com/spectrseq/spectrseqtools/commit/0025e586ac0611f07e703a85845e76421296d5fb))
+* allow analysis of unlabeled sequences ([#78](https://github.com/spectrseq/spectrseqtools/issues/78)) ([49e461e](https://github.com/spectrseq/spectrseqtools/commit/49e461ecfc8311b91307888737e3d2bc6342e86a))
+* allow longer sequences with automatic matrix expansion ([#81](https://github.com/spectrseq/spectrseqtools/issues/81)) ([86712f7](https://github.com/spectrseq/spectrseqtools/commit/86712f724591219fecc22a616db83010925f1912))
+
+
+### Bug Fixes
+
+* include validity checks in multiplexing ([#84](https://github.com/spectrseq/spectrseqtools/issues/84)) ([72709d4](https://github.com/spectrseq/spectrseqtools/commit/72709d4246c76af0d8ec01e04522edb18890b0ff))
+
+
+### Performance Improvements
+
+* extend validity filter to consider complementary fragment ([#80](https://github.com/spectrseq/spectrseqtools/issues/80)) ([55d1e27](https://github.com/spectrseq/spectrseqtools/commit/55d1e27750fe6596c016f740844885bcbb42d4f5))
+* filter terminal fragments with lp before final class assignment ([#82](https://github.com/spectrseq/spectrseqtools/issues/82)) ([dee2f3e](https://github.com/spectrseq/spectrseqtools/commit/dee2f3e8d1806efc9baafab13532124f87615429))
+
 ## [0.4.0](https://github.com/spectrseq/spectrseqtools/compare/v0.3.0...v0.4.0) (2026-11-09)
 
 
