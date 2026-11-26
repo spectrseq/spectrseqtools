@@ -632,12 +632,15 @@ def generate_singletons_and_fragments(
 
     singletons = None
 
-    if singleton_peaks is not None and singleton_peaks.peaks:
-        singletons = singleton_peaks.to_singletons(
+    singletons = (
+        singleton_peaks.to_singletons(
             alphabet_path=options.alphabet,
             error=error,
             min_score=-np.inf,
         )
+        if singleton_peaks is not None and singleton_peaks.peaks
+        else None
+    )
 
     # If there are no singletons on the averaged MS2 scans,
     # use the "global" singletons taken from the whole TIC as a fallback
