@@ -630,8 +630,6 @@ def generate_singletons_and_fragments(
         ),
     )
 
-    singletons = None
-
     singletons = (
         singleton_peaks.to_singletons(
             alphabet_path=options.alphabet,
