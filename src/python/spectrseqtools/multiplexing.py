@@ -136,10 +136,10 @@ def initialize_parsers(options):
         scale_method=options.scale_method,
         error_tolerance=options.peak_error_tol,
         scorer=ms_ditp.MSDeconVFitter(
-            #TODO: envelope_min_score for MS2 deconvolution has to 
+            # TODO: envelope_min_score for MS2 deconvolution has to
             # be separate from MS1, for now it is set to zero since
             # for multiplexing, it yields better results.
-            minimum_score=0,#options.envelope_min_score,
+            minimum_score=0,  # options.envelope_min_score,
             mass_error_tolerance=options.envelope_error_tol,
         ),
         charge_range=options.ms2_charge_range,
@@ -662,13 +662,10 @@ def preprocess_multiplexing(
     file_path = options.input
     raw_file_read = initialize_raw_file_iterator(str(file_path))
 
-    if options.output_dir is None:
-        options.output_dir = Path(options.input).resolve().parent
-
     with open(options.meta, "r", encoding="utf-8") as f:
         meta = yaml.safe_load(f)
-    # TODO: Investigate if this is needed in any part of the downstream analysis or tests.
-    # Otherwise, remove it completely
+    # TODO: Investigate if the join below is needed in any part
+    # of the downstream analysis or tests.
     #     if "true_sequence" not in meta:
     #         meta["true_sequence"] = "".join(meta["true_sequences"])
 
